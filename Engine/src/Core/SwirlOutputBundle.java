@@ -1,4 +1,4 @@
-package com.stochasticsystems.swirl;
+package Core;
 
 /**
  * Created by androiddev on 2017-11-02.
@@ -19,7 +19,7 @@ public class SwirlOutputBundle { // Parcelable (via wrapper? inheritance?), Seri
 
     protected volatile boolean mIsFinal = false;
 
-    SwirlOutputBundle(SwirlParameterBundle parameters) {
+    public SwirlOutputBundle(SwirlParameterBundle parameters) {
         if (parameters == null)
             throw new NullPointerException("Invalid Parameters"); // Assumes validity
         mParameters = parameters;
@@ -36,7 +36,7 @@ public class SwirlOutputBundle { // Parcelable (via wrapper? inheritance?), Seri
         initialize();
     }
 
-    protected void initialize() {
+    private void initialize() {
         //if (mParameters == null) throw new IllegalStateException("Invalid Parameters");
 
         mPopulationData = new long[I][][][];//[t][s][a]; // i, t, s, a

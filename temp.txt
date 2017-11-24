@@ -1,0 +1,25 @@
+isValidMortalityF(mortality, toGenders(mortality), mortality[0].length - 1);
+
+
+public final static double[][] MORTALITY_DEFAULT          = {{.5d, .25d, .2d, .15d, .1d,
+                                                                .1d, .1d, .1d, .1d, .1d,
+                                                                .1d, .1d, .1d, .1d, .1d,
+                                                                .1d, 1.0d},
+                                                               {.5d, .25d, .2d, .15d, .1d,
+                                                                .1d, .1d, .1d, .1d, .1d,
+                                                                .1d, .1d, .1d, .1d, .1d,
+                                                                .1d, 1.0d}};
+public final static double[][] SD_MORTALITY_DEFAULT         = {{.01d, .01d, .01d, .01d, .01d,
+                                                                .01d, .01d, .01d, .01d, .01d,
+                                                                .01d, .01d, .01d, .01d, .01d,
+                                                                .01d, 1.0d},
+                                                               {.01d, .01d, .01d, .01d, .01d,
+                                                                .01d, .01d, .01d, .01d, .01d,
+                                                                .01d, .01d, .01d, .01d, .01d,
+                                                                .01d, 1.0d}};
+
+
+isValidReportingIntervalF(mReportingInterval, mNPeriods)
+public final static int        N_RUNS_DEFAULT             = 100;
+public final static int        N_PERIODS_DEFAULT          = 100;
+public final static int        REPORTING_INTERVAL_DEFAULT = 10;

@@ -1,6 +1,6 @@
-package com.stochasticsystems.swirl;
+package Core;
 
-import org.jetbrains.annotations.Contract;
+//import org.jetbrains.annotations.Contract;
 
 import java.io.PrintStream;
 
@@ -58,7 +58,7 @@ public class SwirlParameterBuilder {
 
     public SwirlParameterBuilder(SwirlParameterBundle initialParameters) {
         mLastReturnedParameters = initialParameters;
-        mLastValid = true;
+        mLastValid = true; // unsure
         mIsValid = false; // Maybe could be true?
         mNRuns = initialParameters.mNRuns;
         mNPeriods = initialParameters.mNPeriods;
@@ -79,6 +79,35 @@ public class SwirlParameterBuilder {
         mHarvestRate = initialParameters.mHarvestRate;
         mSupplementRate = initialParameters.mSupplementRate;
         validate();
+    }
+
+    public boolean set(SwirlParameterBundle parameters) {
+        mLastReturnedParameters = parameters;
+        mLastValid = true; // unsure
+        mIsValid = false; // Maybe could be true?
+        mNRuns = parameters.mNRuns;
+        mNPeriods = parameters.mNPeriods;
+        mReportingInterval = parameters.mReportingInterval;
+        mMaxAge = parameters.mMaxAge;
+        mReproductionAge = parameters.mReproductionAge;
+        mIsGendered = parameters.mIsGendered;
+        mMaxLitterSize = parameters.mMaxLitterSize;
+        mLitterProbability = parameters.mLitterProbability;
+        //mReproductionPercentSD = initialParameters.mReproductionPercentSD;
+        mSexRatio = parameters.mSexRatio;
+        mRMCorrelation = parameters.mRMCorrelation;
+        mMortality = parameters.mMortality;
+        mSDMortality = parameters.mSDMortality;
+        mInitialPopulation = parameters.mInitialPopulation;
+        mCarryingCapacity = parameters.mCarryingCapacity;
+        mSDCarryingCapacity = parameters.mSDCarryingCapacity;
+        mHarvestRate = parameters.mHarvestRate;
+        mSupplementRate = parameters.mSupplementRate;
+        return validate();
+    }
+
+    public boolean setDefaults() {
+        return set(SwirlParameterBundle.getDefault());
     }
 
     public SwirlParameterBundle build() {
@@ -122,10 +151,31 @@ public class SwirlParameterBuilder {
         return mIsValid || validate();
     }
 
+    public long validationCode() {
+        long vCode = (isValidSupplementRate(mSupplementRate) ? 0 : 1); //
+        vCode = vCode << 1 | (isValidHarvestRate(mHarvestRate) ? 0 : 1); //
+        vCode = vCode << 1 | (isValidSDCarryingCapacity(mSDCarryingCapacity) ? 0 : 1); //
+        vCode = vCode << 1 | (isValidCarryingCapacity(mCarryingCapacity)? 0 : 1);
+        vCode = vCode << 1 | (isValidInitialPopulationF(mInitialPopulation, mIsGendered, mMaxAge) ? 0 : 1);
+        vCode = vCode << 1 | (isValidSDMortalityF(mSDMortality, mIsGendered, mMaxAge) ? 0 : 1);
+        vCode = vCode << 1 | (isValidMortalityF(mMortality, mIsGendered, mMaxAge) ? 0 : 1);
+        vCode = vCode << 1 | (isValidRMCorrelation(mRMCorrelation) ? 0 : 1);
+        vCode = vCode << 1 | (isValidSexRatio(mSexRatio, mIsGendered) ? 0 : 1);
+        vCode = vCode << 1 | (isValidLitterProbabilityF(mLitterProbability, mMaxLitterSize) ? 0 : 1);
+        vCode = vCode << 1 | (isValidMaxLitterSize(mMaxLitterSize) ? 0 : 1);
+        vCode = vCode << 1 | (isValidReproductionAgeF(mReproductionAge, mIsGendered, mMaxAge) ? 0 : 1);
+        vCode = vCode << 1 | (isValidMaxAge(mMaxAge) ? 0 : 1);
+        vCode = vCode << 1 | (isValidReportingIntervalF(mReportingInterval, mNPeriods) ? 0 : 1); // 4
+        vCode = vCode << 1 | (isValidNPeriods(mNPeriods) ? 0 : 1); // 2
+        vCode = vCode << 1 | (isValidNRuns(mNRuns) ? 0 : 1); // 1
+
+        return vCode;
+    }
+
     /**
      * @return number of failed tests.
      */
-    static int test(PrintStream err) {
+    public static int test(PrintStream err) { // Likely should be private
         int failed = 0;
 
         try {
@@ -283,7 +333,7 @@ public class SwirlParameterBuilder {
                 failed++;
                 err.println("Invalid SDCarryingCapacity set...");
             }
-            if (!b.setSDCarryingCapacity(SwirlEngine.CARRYING_CAPACITY_DEFAULT)) {
+            if (!b.setSDCarryingCapacity(SwirlEngine.SD_CARRYING_CAPACITY_DEFAULT)) {
                 failed++;
                 err.println("Default SDCarryingCapacity invalid?");
             }
@@ -303,25 +353,26 @@ public class SwirlParameterBuilder {
                 failed++;
                 err.println("Invalid SupplementRate set...");
             }
-            if (!b.setSupplementRate(SwirlEngine.HARVEST_RATE_DEFAULT)) {
+            if (!b.setSupplementRate(SwirlEngine.SUPPLEMENT_RATE_DEFAULT)) {
                 failed++;
                 err.println("Default SupplementRate invalid?");
             }
 
             if (!b.isValid()) {
                 failed++;
-                err.println("Defaults invalid?");
+                err.println("Defaults invalid? "+(b.validationCode()));
             }
 
             SwirlParameterBundle defaults = b.build();
 
-            if (!defaults.equals(SwirlParameterBundle.getDefault())) {
+            if (defaults == null || !defaults.equals(SwirlParameterBundle.getDefault())) {
                 failed++;
                 err.println("Default not returned?");
             }
 
         } catch (Exception e) {
             err.println(e);
+            e.printStackTrace(err);
             // TODO: Make this consistent
         }
 
@@ -355,7 +406,7 @@ public class SwirlParameterBuilder {
      *
      * @return if the parameter is valid or not
      */
-    @org.jetbrains.annotations.Contract(pure = true)
+    //@Contract(pure = true)
     public static boolean isValidNRuns(int nRuns) {
         return nRuns > 0 && nRuns < SwirlEngine.N_RUNS_MAX;
     }
@@ -368,7 +419,7 @@ public class SwirlParameterBuilder {
      *
      * @return if the parameter is possibly viable
      */
-    @Contract(pure = true)
+    //@Contract(pure = true)
     public static boolean isViableNRuns(int nRuns) {
         return isValidNRuns(nRuns);
     }
@@ -394,7 +445,7 @@ public class SwirlParameterBuilder {
      *
      * @return
      */
-    @Contract(pure = true)
+    //@Contract(pure = true)
     public static boolean isValidNPeriods(int nPeriods) {
         return nPeriods > 0 && nPeriods < SwirlEngine.N_PERIODS_MAX;
     }
@@ -407,7 +458,7 @@ public class SwirlParameterBuilder {
      *
      * @return if the parameter is possibly viable
      */
-    @Contract(pure = true)
+    //@Contract(pure = true)
     public static boolean isViableNPeriods(int nPeriods) {
         return isValidNPeriods(nPeriods);
     }
@@ -449,10 +500,10 @@ public class SwirlParameterBuilder {
      *
      * @return
      */
-    @Contract(pure = true)
+    //@Contract(pure = true)
     static boolean isValidReportingIntervalF(int reportingInterval, int nPeriods) {
         return reportingInterval > 0 && reportingInterval <= nPeriods &&
-               reportingInterval % nPeriods == 0;
+               nPeriods % reportingInterval == 0;
     }
 
     /**
@@ -463,7 +514,7 @@ public class SwirlParameterBuilder {
      *
      * @return if the parameter is possibly viable
      */
-    @Contract(pure = true)
+    //@Contract(pure = true)
     public static boolean isViableReportingInterval(int reportingInterval) {
         return reportingInterval > 0 && reportingInterval <= SwirlEngine.N_PERIODS_MAX;
     }
@@ -489,7 +540,7 @@ public class SwirlParameterBuilder {
      *
      * @return
      */
-    @Contract(pure = true)
+    //@Contract(pure = true)
     public static boolean isValidMaxAge(int maxAge) {
         return maxAge > 0 && maxAge < SwirlEngine.MAX_AGE_MAX;
     }
@@ -502,7 +553,7 @@ public class SwirlParameterBuilder {
      *
      * @return if the parameter is possibly viable
      */
-    @Contract(pure = true)
+    //@Contract(pure = true)
     public static boolean isViableMaxAge(int maxAge) {
         return isValidMaxAge(maxAge);
     }
@@ -546,7 +597,7 @@ public class SwirlParameterBuilder {
      *
      * @return
      */
-    @Contract(pure = true)
+    //@Contract(pure = true)
     static boolean isValidReproductionAgeF(int[] reproductionAge, boolean gendered,
                                            int maxAge) {
         return isValidReproductionAgeEntry(reproductionAge[0], maxAge) &&
@@ -562,7 +613,7 @@ public class SwirlParameterBuilder {
      * @return if the parameter is possibly viable
      */
     public static boolean isViableReproductionAge(int[] reproductionAge) {
-        return validGDim(reproductionAge) &&
+        return viableGDim(reproductionAge) &&
                isValidReproductionAgeF(reproductionAge, toGenders(reproductionAge),
                                        SwirlEngine.MAX_AGE_MAX);
     }
@@ -575,7 +626,7 @@ public class SwirlParameterBuilder {
      *
      * @return
      */
-    @Contract(pure = true)
+    //@Contract(pure = true)
     public static boolean isValidReproductionAgeEntry(int reproductionAge, int maxAge) {
         return reproductionAge >= 0 && reproductionAge < maxAge;
     }
@@ -588,7 +639,7 @@ public class SwirlParameterBuilder {
      *
      * @return if the parameter is possibly viable
      */
-    @Contract(pure = true)
+    //@Contract(pure = true)
     public static boolean isViableReproductionAgeEntry(int reproductionAge) {
         return isValidReproductionAgeEntry(reproductionAge, SwirlEngine.MAX_AGE_MAX);
     }
@@ -624,7 +675,7 @@ public class SwirlParameterBuilder {
      *
      * @return
      */
-    @Contract(pure = true)
+    //@Contract(pure = true)
     public static boolean isValidMaxLitterSize(int maxLitterSize) {
         return maxLitterSize > 0 && maxLitterSize < SwirlEngine.MAX_LITTER_SIZE_MAX;
     }
@@ -637,7 +688,7 @@ public class SwirlParameterBuilder {
      *
      * @return if the parameter is possibly viable
      */
-    @Contract(pure = true)
+    //@Contract(pure = true)
     public static boolean isViableMaxLitterSize(int maxLitterSize) {
         return isValidMaxLitterSize(maxLitterSize);
     }
@@ -700,7 +751,7 @@ public class SwirlParameterBuilder {
      * @return if the parameter is possibly viable
      */
     public static boolean isViableLitterProbability(double[] litterProbability) {
-        return validLDim(litterProbability, SwirlEngine.MAX_LITTER_SIZE_MAX + 1) &&
+        return viableLDim(litterProbability, SwirlEngine.MAX_LITTER_SIZE_MAX + 1) &&
                isValidLitterProbabilityF(litterProbability, litterProbability.length - 1);
     }
 
@@ -737,7 +788,7 @@ public class SwirlParameterBuilder {
      *
      * @return if the parameter is possibly viable
      *
-    @Contract(pure = true)
+    //@Contract(pure = true)
     public static boolean isViableReproductionPercentSD(double reproductionPercentSD) {
         return validProb(reproductionPercentSD);
     }//*/
@@ -776,7 +827,7 @@ public class SwirlParameterBuilder {
      *
      * @return if the parameter is possibly viable
      */
-    @Contract(pure = true)
+    //@Contract(pure = true)
     public static boolean isViableSexRatio(double sexRatio) {
         return validProb(sexRatio);
     }
@@ -802,7 +853,7 @@ public class SwirlParameterBuilder {
      *
      * @return
      */
-    @Contract(pure = true)
+    //@Contract(pure = true)
     public static boolean isValidRMCorrelation(double rmCorrelation) {
         return rmCorrelation >= SwirlEngine.RM_CORRELATION_MIN && rmCorrelation <= 1.0d;
     }
@@ -815,7 +866,7 @@ public class SwirlParameterBuilder {
      *
      * @return if the parameter is possibly viable
      */
-    @Contract(pure = true)
+    //@Contract(pure = true)
     public static boolean isViableRMCorrelation(double rmCorrelation) {
         return isValidRMCorrelation(rmCorrelation);
     }
@@ -859,7 +910,7 @@ public class SwirlParameterBuilder {
      *
      * @return
      */
-    @Contract(pure = true)
+    //@Contract(pure = true)
     static boolean isValidMortalityF(double[][] mortality, boolean gendered, int maxAge) {
         int size = maxAge + 1;
         boolean isValid =
@@ -881,7 +932,7 @@ public class SwirlParameterBuilder {
      * @return if the parameter is possibly viable
      */
     public static boolean isViableMortality(double[][] mortality) {
-        return validGDim(mortality) &&
+        return viableGDim(mortality) &&
                isValidMortalityF(mortality, toGenders(mortality), mortality[0].length - 1);
     }
 
@@ -928,8 +979,7 @@ public class SwirlParameterBuilder {
     static boolean isValidSDMortalityF(double[][] sdMortality, boolean gendered, int maxAge) {
         // TODO: Is this valid? should there be a stronger check?
         int size = maxAge + 1;
-        boolean isValid =
-                sdMortality[0].length == size && (!gendered || sdMortality[1].length == size);
+        boolean isValid = sdMortality[0].length == size && (!gendered || sdMortality[1].length == size);
         for (int i = 0; isValid && i < maxAge; i++) {
             isValid =
                     validProb(sdMortality[0][i]) && (!gendered || validProb(sdMortality[1][i]));
@@ -948,7 +998,7 @@ public class SwirlParameterBuilder {
      * @return if the parameter is possibly viable
      */
     public static boolean isViableSDMortality(double[][] sdMortality) {
-        return validGDim(sdMortality) &&
+        return viableGDim(sdMortality) &&
                isValidSDMortalityF(sdMortality, toGenders(sdMortality),
                                    sdMortality[0].length - 1);
     }
@@ -993,7 +1043,7 @@ public class SwirlParameterBuilder {
      *
      * @return
      */
-    @Contract(pure = true)
+    //@Contract(pure = true)
     static boolean isValidInitialPopulationF(long[][] initialPopulation, boolean gendered,
                                              int maxAge) {
         int size = maxAge + 1;
@@ -1017,7 +1067,7 @@ public class SwirlParameterBuilder {
      * @return
      */
     public static boolean isViableInitialPopulation(long[][] initialPopulation) {
-        return validGDim(initialPopulation) &&
+        return viableGDim(initialPopulation) &&
                isValidInitialPopulationF(initialPopulation, toGenders(initialPopulation.length),
                                          initialPopulation[0].length - 1);
     }
@@ -1029,7 +1079,7 @@ public class SwirlParameterBuilder {
      *
      * @return
      */
-    @Contract(pure = true)
+    //@Contract(pure = true)
     public static boolean isValidInitialPopulationEntry(long initialPopulation) {
         return initialPopulation >= 0L && initialPopulation <= SwirlEngine.INITIAL_POPULATION_MAX;
     }
@@ -1042,7 +1092,7 @@ public class SwirlParameterBuilder {
      *
      * @return
      */
-    @Contract(pure = true)
+    //@Contract(pure = true)
     public static boolean isViableInitialPopulationEntry(long initialPopulation) {
         return isValidInitialPopulationEntry(initialPopulation);
     }
@@ -1068,7 +1118,7 @@ public class SwirlParameterBuilder {
      *
      * @return
      */
-    @Contract(pure = true)
+    //@Contract(pure = true)
     public static boolean isValidCarryingCapacity(long carryingCapacity) {
         return carryingCapacity > 0L && carryingCapacity <= SwirlEngine.CARRYING_CAPACITY_MAX;
     }
@@ -1081,7 +1131,7 @@ public class SwirlParameterBuilder {
      *
      * @return
      */
-    @Contract(pure = true)
+    //@Contract(pure = true)
     public static boolean isViableCarryingCapacity(long carryingCapacity) {
         return isValidCarryingCapacity(carryingCapacity);
     }
@@ -1107,9 +1157,9 @@ public class SwirlParameterBuilder {
      *
      * @return
      */
-    @Contract(pure = true)
+    //@Contract(pure = true)
     public static boolean isValidSDCarryingCapacity(double sdCarryingCapacity) {
-        return sdCarryingCapacity >= 0L && sdCarryingCapacity <= SwirlEngine.SD_CARRYING_CAPACITY_MAX;
+        return sdCarryingCapacity >= 0.0d && sdCarryingCapacity <= SwirlEngine.SD_CARRYING_CAPACITY_MAX;
     }
 
     /**
@@ -1120,7 +1170,7 @@ public class SwirlParameterBuilder {
      *
      * @return
      */
-    @Contract(pure = true)
+    //@Contract(pure = true)
     public static boolean isViableSDCarryingCapacity(double sdCarryingCapacity) {
         return isValidSDCarryingCapacity(sdCarryingCapacity);
     }
@@ -1146,7 +1196,7 @@ public class SwirlParameterBuilder {
      *
      * @return
      */
-    @Contract(pure = true)
+    //@Contract(pure = true)
     public static boolean isValidHarvestRate(int harvestRate) {
         return harvestRate >= 0 && harvestRate <= SwirlEngine.HARVEST_RATE_MAX;
     }
@@ -1159,7 +1209,7 @@ public class SwirlParameterBuilder {
      *
      * @return
      */
-    @Contract(pure = true)
+    //@Contract(pure = true)
     public static boolean isViableHarvestRate(int harvestRate) {
         return isValidHarvestRate(harvestRate);
     }
@@ -1185,7 +1235,7 @@ public class SwirlParameterBuilder {
      *
      * @return
      */
-    @Contract(pure = true)
+    //@Contract(pure = true)
     public static boolean isValidSupplementRate(int supplementRate) {
         return supplementRate >= 0 && supplementRate <= SwirlEngine.HARVEST_RATE_MAX;
     }
@@ -1198,124 +1248,129 @@ public class SwirlParameterBuilder {
      *
      * @return
      */
-    @Contract(pure = true)
+    //@Contract(pure = true)
     public static boolean isViableSupplementRate(int supplementRate) {
         return isValidSupplementRate(supplementRate);
     }
 
     //  Check helpers
 
-    @Contract(pure = true)
+    //@Contract(pure = true)
     static boolean validProb(double p) {
         return p >= 0.0d && p <= 1.0d;
     }
 
-    @Contract(pure = true)
+    //@Contract(pure = true)
     static boolean realProb(double p) {
         return p > 0.0d && p < 1.0d;
     }
 
-    @Contract(value = "null, _ -> false", pure = true)
+    //@Contract(value = "null, _ -> false", pure = true)
     static boolean validGArray(int[] array, boolean gendered) {
         return array != null && array.length == ((gendered) ? 2 : 1);
     }
 
-    @Contract(value = "null, _ -> false", pure = true)
+    //@Contract(value = "null, _ -> false", pure = true)
     static boolean validGArray(int[][] array, boolean gendered) {
         return array != null && array.length == ((gendered) ? 2 : 1);
     }
 
-    @Contract(value = "null, _ -> false", pure = true)
+    //@Contract(value = "null, _ -> false", pure = true)
     static boolean validGArray(long[] array, boolean gendered) {
         return array != null && array.length == ((gendered) ? 2 : 1);
     }
 
-    @Contract(value = "null, _ -> false", pure = true)
+    //@Contract(value = "null, _ -> false", pure = true)
     static boolean validGArray(long[][] array, boolean gendered) {
         return array != null && array.length == ((gendered) ? 2 : 1);
     }
 
-    @Contract(value = "null, _ -> false", pure = true)
+    //@Contract(value = "null, _ -> false", pure = true)
     static boolean validGArray(double[] array, boolean gendered) {
         return array != null && array.length == ((gendered) ? 2 : 1);
     }
 
-    @Contract(value = "null, _ -> false", pure = true)
+    //@Contract(value = "null, _ -> false", pure = true)
     static boolean validGArray(double[][] array, boolean gendered) {
         return array != null && array.length == ((gendered) ? 2 : 1);
     }
 
-    @Contract(pure = true)
-    static boolean validGDim(int firstDimension) {
+    //@Contract(pure = true)
+    static boolean viableGDim(int firstDimension) {
         return firstDimension == 1 || firstDimension == 2;
     }
 
-    @Contract(value = "null -> false", pure = true)
-    static boolean validGDim(int[] array) {
+    //@Contract(value = "null -> false", pure = true)
+    static boolean viableGDim(int[] array) {
         return array != null && (array.length == 1 || array.length == 2);
     }
 
-    @Contract(value = "null -> false", pure = true)
-    static boolean validGDim(int[][] array) {
+    //@Contract(value = "null -> false", pure = true)
+    static boolean viableGDim(int[][] array) {
         return array != null && (array.length == 1 || array.length == 2);
     }
 
-    @Contract(value = "null -> false", pure = true)
-    static boolean validGDim(long[] array) {
+    //@Contract(value = "null -> false", pure = true)
+    static boolean viableGDim(long[] array) {
         return array != null && (array.length == 1 || array.length == 2);
     }
 
-    @Contract(value = "null -> false", pure = true)
-    static boolean validGDim(long[][] array) {
+    //@Contract(value = "null -> false", pure = true)
+    static boolean viableGDim(long[][] array) {
         return array != null && (array.length == 1 || array.length == 2);
     }
 
-    @Contract(value = "null -> false", pure = true)
-    static boolean validGDim(double[] array) {
+    //@Contract(value = "null -> false", pure = true)
+    static boolean viableGDim(double[] array) {
         return array != null && (array.length == 1 || array.length == 2);
     }
 
-    @Contract(value = "null -> false", pure = true)
-    static boolean validGDim(double[][] array) {
+    //@Contract(value = "null -> false", pure = true)
+    static boolean viableGDim(double[][] array) {
         return array != null && (array.length == 1 || array.length == 2);
     }
 
-    @Contract(value = "null, _ -> false", pure = true)
+    //@Contract(value = "null, _ -> false", pure = true)
     static boolean validLDim(double[] array, int length) {
         return array != null && array.length == length;
     }
 
-    @Contract(pure = true)
+    //@Contract(value = "null, _ -> false", pure = true)
+    static boolean viableLDim(double[] array, int length) {
+        return array != null && array.length <= length;
+    }
+
+    //@Contract(pure = true)
     static boolean toGenders(int firstDimension) {
         return firstDimension == 2;
     }
 
-    @Contract(pure = true)
+    //@Contract(pure = true)
     static boolean toGenders(int[] array) {
         return array.length == 2;
     }
 
-    @Contract(pure = true)
+    //@Contract(pure = true)
     static boolean toGenders(int[][] array) {
         return array.length == 2;
     }
 
-    @Contract(pure = true)
+    //@Contract(pure = true)
     static boolean toGenders(long[] array) {
         return array.length == 2;
     }
 
-    @Contract(pure = true)
+    //@Contract(pure = true)
     static boolean toGenders(long[][] array) {
         return array.length == 2;
     }
 
-    @Contract(pure = true)
+    //@Contract(pure = true)
     static boolean toGenders(double[] array) {
         return array.length == 2;
     }
 
-    @Contract(pure = true)
+    //@Contract(pure = true)
     static boolean toGenders(double[][] array) {
         return array.length == 2;
     }

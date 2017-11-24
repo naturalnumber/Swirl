@@ -1,4 +1,4 @@
-package com.stochasticsystems.swirl;
+package Core;
 
 import java.util.Arrays;
 
@@ -243,6 +243,27 @@ public class SwirlParameterBundle {
     }
 
     //  Other methods
+
+    public String toLines() {
+        // TODO: make a sensible version.
+        return "mNRuns=" + mNRuns +
+               "\nmNPeriods=" + mNPeriods +
+               "\nmReportingInterval=" + mReportingInterval +
+               "\nmMaxAge=" + mMaxAge +
+               "\nmReproductionAge=" + Arrays.toString(mReproductionAge) +
+               "\nmIsGendered=" + mIsGendered +
+               "\nmMaxLitterSize=" + mMaxLitterSize +
+               "\nmLitterProbability=" + Arrays.toString(mLitterProbability) +
+               "\nmSexRatio=" + mSexRatio +
+               "\nmRMCorrelation=" + mRMCorrelation +
+               "\nmMortality=" + Arrays.toString(mMortality) +
+               "\nmSDMortality=" + Arrays.toString(mSDMortality) +
+               "\nmInitialPopulation=" + Arrays.toString(mInitialPopulation) +
+               "\nmCarryingCapacity=" + mCarryingCapacity +
+               "\nmSDCarryingCapacity=" + mSDCarryingCapacity +
+               "\nmHarvestRate=" + mHarvestRate +
+               "\nmSupplementRate=" + mSupplementRate;
+    }
 
     @Override
     public String toString() {

@@ -1,4 +1,4 @@
-package com.stochasticsystems.swirl;
+package Core;
 
 import java.security.InvalidParameterException;
 import java.util.Random;
@@ -464,7 +464,7 @@ public class SwirlEngine {
     public final static double RM_CORRELATION_MIN       = 0d;
     public final static long   INITIAL_POPULATION_MAX   = 10000000000L;
     public final static long   CARRYING_CAPACITY_MAX    = 1000000000000L;
-    public final static long   SD_CARRYING_CAPACITY_MAX = 100000000000L;
+    public final static double SD_CARRYING_CAPACITY_MAX = 10000000000d;
     public final static int    HARVEST_RATE_MAX         = 1000000000;
     public final static int    SUPPLEMENT_RATE_MAX      = 1000000000;
 
@@ -483,19 +483,19 @@ public class SwirlEngine {
     public final static double[][] MORTALITY_DEFAULT          = {{.5d, .25d, .2d, .15d, .1d,
                                                                     .1d, .1d, .1d, .1d, .1d,
                                                                     .1d, .1d, .1d, .1d, .1d,
-                                                                    .1d, .1d},
+                                                                    .1d, 1.0d},
                                                                    {.5d, .25d, .2d, .15d, .1d,
                                                                     .1d, .1d, .1d, .1d, .1d,
                                                                     .1d, .1d, .1d, .1d, .1d,
-                                                                    .1d, .1d}};
+                                                                    .1d, 1.0d}};
     public final static double[][] SD_MORTALITY_DEFAULT         = {{.01d, .01d, .01d, .01d, .01d,
                                                                     .01d, .01d, .01d, .01d, .01d,
                                                                     .01d, .01d, .01d, .01d, .01d,
-                                                                    .01d, .01d},
+                                                                    .01d, 1.0d},
                                                                    {.01d, .01d, .01d, .01d, .01d,
                                                                     .01d, .01d, .01d, .01d, .01d,
                                                                     .01d, .01d, .01d, .01d, .01d,
-                                                                    .01d, .01d}};
+                                                                    .01d, 1.0d}};
     public final static long[][]   INITIAL_POPULATION_DEFAULT   = {{100L, 100L, 100L, 100L, 100L,
                                                                     100L, 100L, 100L, 100L, 100L,
                                                                     100L, 100L, 100L, 100L, 100L,
@@ -505,7 +505,7 @@ public class SwirlEngine {
                                                                     100L, 100L, 100L, 100L, 100L,
                                                                     100L, 100L}};
     public final static long       CARRYING_CAPACITY_DEFAULT    = 1000L;
-    public final static double     SD_CARRYING_CAPACITY_DEFAULT = 100;
+    public final static double     SD_CARRYING_CAPACITY_DEFAULT = 100.0d;
     public final static int        HARVEST_RATE_DEFAULT         = 0;
     public final static int        SUPPLEMENT_RATE_DEFAULT      = 0;
 
