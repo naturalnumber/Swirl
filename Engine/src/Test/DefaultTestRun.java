@@ -28,16 +28,24 @@ public class DefaultTestRun {
         engine.initialize();
 
         if (engine.isInitialized()) {
-            int last = 0;
-            for (int i = 1; i < defaults.getNRuns()/10; i++) {
+            int by = 10, last = 0;
+            for (int i = 1; i <= defaults.getNRuns()/by; i++) {
                 System.out.print("i = "+i);
-                engine.iterate(i*10);
-                System.out.println(" I = "+engine.iterationsCompleted());
-                output.addData(engine.getData(last));
-                last = i*10;
+                engine.iterate(by, null);
+                System.out.print(" I = "+engine.iterationsCompleted());
+                long[][][][] temp = engine.getData(last);
+                if (temp == null) System.err.println("?");
+                System.out.println(" added: "+output.addData(temp));
+                last = i*by;
 
-                System.out.println(Arrays.toString(output.getPopulationMeans()[last][0]));
-                System.out.println(Arrays.toString(output.getPopulationMeans()[last][1]));
+                System.out.println(Arrays.toString(output.getSummaryMeans()));
+
+                try {
+                    System.in.read();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+
                 // Do something
             }
 
@@ -47,8 +55,7 @@ public class DefaultTestRun {
                 output.addData(engine.getData(last));
                 last = engine.iterationsCompleted();
 
-                System.out.println(Arrays.toString(output.getPopulationMeans()[last][0]));
-                System.out.println(Arrays.toString(output.getPopulationMeans()[last][1]));
+                System.out.println(Arrays.toString(output.getSummaryMeans()));
                 // Do something
             }
 

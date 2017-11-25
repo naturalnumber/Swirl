@@ -1,6 +1,8 @@
 package Core;
 
+import java.io.PrintStream;
 import java.security.InvalidParameterException;
+import java.util.Arrays;
 import java.util.Random;
 
 /**
@@ -41,7 +43,7 @@ public class SwirlEngine {
     public SwirlEngine(SwirlParameterBundle parameters) {
         mParameters = parameters;
         I = mParameters.getNRuns();
-        T = mParameters.getNPeriods();
+        T = mParameters.getNPeriods()+1;
         S = mParameters.isGendered() ? 2 : 1;
         A = mParameters.getMaxAge()+1;
 
@@ -99,9 +101,18 @@ public class SwirlEngine {
      * @return success
      */
     public boolean iterate(int n) {
-        if (mInitialized && !mCompleted) {
+        return iterate(n, null);
+    }
+
+    /**
+     * Iterates up to n iterations, after moved to separate thread.
+     *
+     * @return success
+     */
+    public boolean iterate(int n, PrintStream out) {
+        if (mInitialized && !mCompleted && n <= iterationsLeft()) {
             //  Constants
-            double norm = 1.0d / Math.sqrt(2.0d*Math.PI);
+            //double norm = 1.0d / Math.sqrt(2.0d*Math.PI);
 
             //  I think it is faster to have local variables...
             int endI = mI+n;
@@ -119,7 +130,7 @@ public class SwirlEngine {
             boolean equateRM = mParameters.getRMCorrelation() == 1.0d;
             double rhoRM = mParameters.getRMCorrelation();
             double rhoRM2 = Math.sqrt(1.0d-rhoRM*rhoRM);
-            int evR = 0, evM = 1, evK = 2, evs = 3; // Indices
+            final int evR = 0, evM = 1, evK = 2, evs = 3; // Indices
             double[] ev = new double[evs];
             double[] litters = mParameters.getLitterProbability();
             int L = litters.length; // mParameters.getMaxLitterSize()+1;
@@ -129,10 +140,15 @@ public class SwirlEngine {
             double[][] mortalitySD = mParameters.getSDMortality();
             int harvest = mParameters.getHarvestRate();
             int supplement = mParameters.getSupplementRate();
-            double[][] delta = new double[S][A];
+            double[][] supplements = new double[S][A];
             long k = mParameters.getCarryingCapacity();
             double kSD = mParameters.getSDCarryingCapacity();
 
+            // TODO: Move this out
+            double avgL = 0.0d;
+            for (int l = 1; l < L; l++) {
+                avgL += l * litters[l];
+            }
 
             //  Counters
             long nF = 0, nM = 0, nRF = 0, nRM = 0;
@@ -145,8 +161,6 @@ public class SwirlEngine {
                 nFStart += initialPop[0][a];
                 nRFStart += initialPop[0][a];
             }
-            nF = nFStart;
-            nRF = nRFStart;
 
             if (gendered) {
                 for (int a = 0; a < rAgeM; a++) {
@@ -156,8 +170,16 @@ public class SwirlEngine {
                     nMStart += initialPop[1][a];
                     nRMStart += initialPop[1][a];
                 }
-                nM = nMStart;
-                nRM = nRMStart;
+            }
+
+            if (out != null) {
+                StringBuilder sb = new StringBuilder();
+                sb.append(mI).append(" Initialized to: ").append("rVP=").append(rVP)
+                  .append(" avgL=").append(avgL).append('\n');
+                sb.append("\tnFStart=").append(nFStart).append(" nMStart=").append(nMStart)
+                  .append(" nRFStart=").append(nRFStart).append(" nRMStart=").append(nRMStart);
+                out.println(sb);
+                out.flush();
             }
 
             long[][] tempPop;//, tempPopOld;
@@ -165,35 +187,47 @@ public class SwirlEngine {
             long tempL;
             double tempD, tempF, tempM;
 
-            //  Init delta, skips 0 by default // TODO: Verify this
-            tempF = tempM = 0.0d;
-            tempL = supplement - harvest;
-            if (gendered) {
-                for (int a = 1; a < A; a++) {
-                    tempF += mortality[0][a];
-                    delta[0][a] = tempF;
-                    tempM += mortality[1][a];
-                    delta[1][a] = tempM;
+            //  Init delta, skips 0 by default
+            tempF = tempM = 1.0d;
+            double tempFS = 0.0d, tempMS  = 0.0d;
+            //tempL = supplement - harvest;
+            if (supplement > 0l) {
+                if (gendered) {
+                    for (int a = 1; a < A; a++) {
+                        supplements[0][a] = tempF;
+                        tempFS += tempF;
+                        tempF *= 1.0d - mortality[0][a];
+                        supplements[1][a] = tempM;
+                        tempMS += tempM;
+                        tempM *= 1.0d - mortality[1][a];
+                    }
+                    tempF = supplement * sr2 / tempFS;
+                    tempM = supplement * sr / tempMS;
+                    for (int a = 1; a < A; a++) { // Normalize
+                        supplements[0][a] *= tempF;
+                        supplements[1][a] *= tempM;
+                    }
+                } else {
+                    for (int a = 1; a < A; a++) {
+                        supplements[0][a] = tempF;
+                        tempFS += tempF;
+                        tempF *= 1.0d - mortality[0][a];
+                    }
+                    tempF = supplement / tempF;
+                    for (int a = 1; a < A; a++) { // Normalize
+                        supplements[0][a] *= tempF;
+                    }
                 }
-                tempF = tempL*sr2/tempF;
-                tempM = tempL*sr/tempM;
-                for (int a = 1; a < A; a++) { // Normalize
-                    delta[0][a] *= tempF;
-                    delta[1][a] *= tempM;
-                }
-            } else {
-                for (int a = 1; a < A; a++) {
-                    tempF += mortality[0][a];
-                    delta[0][a] = tempF;
-                }
-                tempF = tempL/tempF;
-                for (int a = 1; a < A; a++) { // Normalize
-                    delta[0][a] *= tempF;
+                if (out != null) {
+                    StringBuilder sb = new StringBuilder();
+                    sb.append("Supplimenting to: \n\t").append(Arrays.toString(supplements[0]));
+                    if (gendered) sb.append("\n\t").append(Arrays.toString(supplements[1]));
+                    out.println(sb);
+                    out.flush();
                 }
             }
 
             for (int i = mI; i < endI; i++) {
-
                 //  Iteration init
                 //mT = 0;
                 mPopulationData[i] = new long[T][][];
@@ -227,6 +261,16 @@ public class SwirlEngine {
                         for (int j = 0; j < evs; j++) ev[j] = mGenerator.nextGaussian();
                     }
 
+                    if (out != null) {
+                        StringBuilder sb = new StringBuilder();
+                        sb.append(i).append(", t").append(t-1).append(": \n\t")
+                          .append(Arrays.toString(femalesOld));
+                        if (gendered) sb.append("\n\t").append(Arrays.toString(malesOld));
+                        sb.append("\n\t t").append(t).append(": evs: ").append(Arrays.toString(ev));
+                        out.println(sb);
+                        out.flush();
+                    }
+
                     tempPop = new long[S][A];
                     females = tempPop[0];
                     females[0] = 0;
@@ -236,13 +280,9 @@ public class SwirlEngine {
                         males = tempPop[1];
                         males[0] = 0;
                         if (nRF > 0 && nRM > 0) { // viability check
-                            tempF = tempM = 0.0d;
-                            for (int l = 1; l < L; l++) {
-                                tempF += l * litters[l];
-                            }
                             //  Multiply by reproductive population & ev effect
                             //(1.0d + Math.exp(ev[evR] * ev[evR] / -2.0d) *Math.signum(ev[evR]));
-                            tempF *= nRF * (1.0d + ev[evR] * Math.sqrt(rVP / nRF));
+                            tempF = avgL * nRF * (1.0d + ev[evR] * Math.sqrt(rVP / nRF));
                             tempF = Math.max(0.0d, tempF); // Check and remove negatives
                             tempM = tempF; // Prepare for sex ratio
                             tempM *= sr; // Sex ratio applied
@@ -267,17 +307,33 @@ public class SwirlEngine {
                         }
                     }
                     //  Now temp has the age 0 set pre mortality
+                    if (out != null) {
+                        StringBuilder sb = new StringBuilder();
+                        sb.append("Reproducing to: ").append(tempPop[0][0]);
+                        if (gendered) sb.append(" and ").append(tempPop[1][0]);
+                        out.println(sb);
+                        out.flush();
+                    }
 
                     //  Aging, Mortality, Harvest & Supplement
                     if (gendered) {
+                        tempD = (harvest > 0) ? (nF + nM > 0) ? (nF + nM - harvest) / (double) (nF + nM) : 0.0d : 1.0d;
                         for (int a = A-2; a >= 0; a--) {
-                            females[a+1] = Math.max(0, Math.round(femalesOld[a] * (mortality[0][a] + mortalitySD[0][a] * ev[evM]) + delta[0][a]));
-                            males[a+1] = Math.max(0, Math.round(malesOld[a] * (mortality[1][a] + mortalitySD[1][a] * ev[evM]) + delta[1][a]));
+                            females[a+1] = Math.max(0l, Math.round(femalesOld[a] * (1.0d - (mortality[0][a] + mortalitySD[0][a] * ev[evM])) * tempD + supplements[0][a]));
+                            males[a+1] = Math.max(0l, Math.round(malesOld[a] * (1.0d - (mortality[1][a] + mortalitySD[1][a] * ev[evM])) * tempD + supplements[1][a]));
                         }
                     } else {
+                        tempD = (harvest > 0) ? (nF > 0) ? (nF - harvest) / (double) (nF) : 0.0d : 1.0d;
                         for (int a = A-2; a >= 0; a--) {
-                            females[a+1] = Math.max(0, Math.round(femalesOld[a] * (mortality[0][a] + mortalitySD[0][a] * ev[evM]) + delta[0][a]));
+                            females[a+1] = Math.max(0l, Math.round(femalesOld[a] * (mortality[0][a] + mortalitySD[0][a] * ev[evM]) * tempD + supplements[0][a]));
                         }
+                    }
+                    if (out != null) {
+                        StringBuilder sb = new StringBuilder();
+                        sb.append("Aging to: \n\t").append(Arrays.toString(tempPop[0]));
+                        if (gendered) sb.append("\n\t").append(Arrays.toString(tempPop[1]));
+                        out.println(sb);
+                        out.flush();
                     }
 
                     // Census
@@ -306,7 +362,7 @@ public class SwirlEngine {
                     tempL = Math.round(tempD);
                     if (gendered) {
                         if (nF + nM > tempL) {
-                            tempD = (nF + nM) / tempD;
+                            tempD = (nF + nM > 0) ? tempD / (nF + nM) : 0.0d;
                             for (int a = 0; a < A; a++) {
                                 females[a] = Math.round(females[a] * tempD);
                                 males[a] = Math.round(males[a] * tempD);
@@ -328,10 +384,18 @@ public class SwirlEngine {
                                 nM += males[a];
                                 nRM += males[a];
                             }
+
+                            if (out != null) {
+                                StringBuilder sb = new StringBuilder();
+                                sb.append("K(").append(k+kSD*ev[evK]).append("->").append(tempD).append(") to: \n\t").append(Arrays.toString(tempPop[0]));
+                                sb.append("\n\t").append(Arrays.toString(tempPop[1]));
+                                out.println(sb);
+                                out.flush();
+                            }
                         }
                     } else {
                         if (nF > tempL) {
-                            tempD = nF / tempD;
+                            tempD = (nF > 0) ? tempD / (nF) : 0.0d;
                         }
                         for (int a = 0; a < A; a++) {
                             females[a] = Math.round(females[a] * tempD);
@@ -345,6 +409,13 @@ public class SwirlEngine {
                         for (int a = rAgeF; a < A; a++) {
                             nF += females[a];
                             nRF += females[a];
+                        }
+
+                        if (out != null) {
+                            StringBuilder sb = new StringBuilder();
+                            sb.append("K(").append(tempD).append(") to: \n\t").append(Arrays.toString(tempPop[0]));
+                            out.println(sb);
+                            out.flush();
                         }
                     }
 
@@ -377,7 +448,8 @@ public class SwirlEngine {
             throw new IllegalStateException("Not initialized");
         }
         if (first < 0 || first >= mI) {
-            throw new InvalidParameterException("Invalid entry: "+first);
+            return null;
+            //throw new InvalidParameterException("Invalid entry: "+first);
         }
 
         int l = mI-first;
@@ -461,7 +533,7 @@ public class SwirlEngine {
     public final static int    N_PERIODS_MAX            = 10000;
     public final static int    MAX_AGE_MAX              = 200;
     public final static int    MAX_LITTER_SIZE_MAX      = 100;
-    public final static double RM_CORRELATION_MIN       = 0d;
+    public final static double RM_CORRELATION_MIN       = -1.0d;
     public final static long   INITIAL_POPULATION_MAX   = 10000000000L;
     public final static long   CARRYING_CAPACITY_MAX    = 1000000000000L;
     public final static double SD_CARRYING_CAPACITY_MAX = 10000000000d;
@@ -469,7 +541,7 @@ public class SwirlEngine {
     public final static int    SUPPLEMENT_RATE_MAX      = 1000000000;
 
     //  Defaults
-    public final static int        N_RUNS_DEFAULT               = 100;
+    public final static int        N_RUNS_DEFAULT             = 100;
     public final static int        N_PERIODS_DEFAULT          = 100;
     public final static int        REPORTING_INTERVAL_DEFAULT = 10;
     public final static int        MAX_AGE_DEFAULT            = 16;
@@ -479,7 +551,7 @@ public class SwirlEngine {
     public final static double[]   LITTER_PROBABILITY_DEFAULT = {.5d, .1d, .2d, .15d, .05d};
     //public final static double     SD_REPRODUCTION_P_DEFAULT  = .1d;
     public final static double     SEX_RATIO_DEFAULT          = .5d;
-    public final static double     RM_CORRELATION_DEFAULT     = .8d;
+    public final static double     RM_CORRELATION_DEFAULT     = -0.5d;
     public final static double[][] MORTALITY_DEFAULT          = {{.5d, .25d, .2d, .15d, .1d,
                                                                     .1d, .1d, .1d, .1d, .1d,
                                                                     .1d, .1d, .1d, .1d, .1d,
@@ -504,7 +576,7 @@ public class SwirlEngine {
                                                                     100L, 100L, 100L, 100L, 100L,
                                                                     100L, 100L, 100L, 100L, 100L,
                                                                     100L, 100L}};
-    public final static long       CARRYING_CAPACITY_DEFAULT    = 1000L;
+    public final static long       CARRYING_CAPACITY_DEFAULT    = 2000L;
     public final static double     SD_CARRYING_CAPACITY_DEFAULT = 100.0d;
     public final static int        HARVEST_RATE_DEFAULT         = 0;
     public final static int        SUPPLEMENT_RATE_DEFAULT      = 0;

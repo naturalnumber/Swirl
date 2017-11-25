@@ -16,6 +16,14 @@ public class SwirlOutputBundle { // Parcelable (via wrapper? inheritance?), Seri
     protected transient long[][][]   mPopulationSquares; //  volatile? t, s, a
     protected transient double[][][] mPopulationMeans; //  transient? volatile? t, s, a
     protected transient double[][][] mPopulationSTDs; //  transient? volatile? t, s, a
+    protected transient long[][]     mGSummarySums; //  volatile? t, s
+    protected transient long[][]     mGSummarySquares; //  volatile? t, s
+    protected transient double[][]   mGSummaryMeans; //  transient? volatile? t, s
+    protected transient double[][]   mGSummarySTDs; //  transient? volatile? t, s
+    protected transient long[]       mSummarySums; //  volatile? t
+    protected transient long[]       mSummarySquares; //  volatile? t
+    protected transient double[]     mSummaryMeans; //  transient? volatile? t
+    protected transient double[]     mSummarySTDs; //  transient? volatile? t
 
     protected volatile boolean mIsFinal = false;
 
@@ -24,7 +32,7 @@ public class SwirlOutputBundle { // Parcelable (via wrapper? inheritance?), Seri
             throw new NullPointerException("Invalid Parameters"); // Assumes validity
         mParameters = parameters;
         I = mParameters.getNRuns();
-        T = mParameters.getNPeriods();
+        T = mParameters.getNPeriods()+1;
         S = mParameters.isGendered() ? 2 : 1;
         A = mParameters.getMaxAge()+1;
 
@@ -44,11 +52,20 @@ public class SwirlOutputBundle { // Parcelable (via wrapper? inheritance?), Seri
         mPopulationSquares = new long[T][S][A]; //  volatile? t, s, a
         mPopulationMeans = new double[T][S][A]; //  transient? volatile? t, s, a
         mPopulationSTDs = new double[T][S][A]; //  transient? volatile? t, s, a
+        mGSummarySums = new long[T][S]; //  volatile? t, s
+        mGSummarySquares = new long[T][S]; //  volatile? t, s
+        mGSummaryMeans = new double[T][S]; //  transient? volatile? t, s
+        mGSummarySTDs = new double[T][S]; //  transient? volatile? t, s
+        mSummarySums = new long[T]; //  volatile? t
+        mSummarySquares = new long[T]; //  volatile? t
+        mSummaryMeans = new double[T]; //  transient? volatile? t
+        mSummarySTDs = new double[T]; //  transient? volatile? t
     }
 
     public synchronized boolean addData(long[][][][] newData) { // Double check synchronization
-        if (isBadData(newData) || newData.length > mParameters.getNRuns()-mCompleteRuns)
+        if (isBadData(newData) || newData.length > mParameters.getNRuns()-mCompleteRuns) {
             return false;
+        }
 
         int newCompleted = mCompleteRuns+newData.length;
         long temp;
@@ -66,6 +83,10 @@ public class SwirlOutputBundle { // Parcelable (via wrapper? inheritance?), Seri
                         temp = newData[j][t][s][a];
                         mPopulationSums[t][s][a] += temp;
                         mPopulationSquares[t][s][a] += temp*temp;
+                        mGSummarySums[t][s] += temp;
+                        mGSummarySquares[t][s] += temp * temp;
+                        mSummarySums[t] += temp;
+                        mSummarySquares[t] += temp * temp;
                     }
                 }
             }
@@ -77,6 +98,12 @@ public class SwirlOutputBundle { // Parcelable (via wrapper? inheritance?), Seri
                     mean = mPopulationSums[t][s][a] * weight;
                     mPopulationMeans[t][s][a] = mean;
                     mPopulationSTDs[t][s][a] = Math.sqrt(mPopulationSquares[t][s][a] * weight + mean * mean);
+                    mean = mGSummarySums[t][s] * weight;
+                    mGSummaryMeans[t][s] = mean;
+                    mGSummarySTDs[t][s] = Math.sqrt(mGSummarySquares[t][s] * weight + mean * mean);
+                    mean = mSummarySums[t] * weight;
+                    mSummaryMeans[t] = mean;
+                    mSummarySTDs[t] = Math.sqrt(mSummarySquares[t] * weight + mean * mean);
                 }
             }
         }
@@ -101,6 +128,8 @@ public class SwirlOutputBundle { // Parcelable (via wrapper? inheritance?), Seri
                         temp = newData[j][t][s][a];
                         mPopulationSums[t][s][a] += temp;
                         mPopulationSquares[t][s][a] += temp*temp;
+                        mGSummarySums[t][s] += temp;
+                        mGSummarySquares[t][s] += temp * temp;
                     }
                 }
             }
@@ -112,6 +141,9 @@ public class SwirlOutputBundle { // Parcelable (via wrapper? inheritance?), Seri
                     mean = mPopulationSums[t][s][a] * weight;
                     mPopulationMeans[t][s][a] = mean;
                     mPopulationSTDs[t][s][a] = Math.sqrt(mPopulationSquares[t][s][a] * weight + mean * mean);
+                    mean = mGSummarySums[t][s] * weight;
+                    mGSummaryMeans[t][s] = mean;
+                    mGSummarySTDs[t][s] = Math.sqrt(mGSummarySquares[t][s] * weight + mean * mean);
                 }
             }
         }
@@ -151,6 +183,22 @@ public class SwirlOutputBundle { // Parcelable (via wrapper? inheritance?), Seri
 
     public double[][][] getPopulationSTDs() {
         return mPopulationSTDs;
+    }
+
+    public double[][] getGenderedSummaryMeans() {
+        return mGSummaryMeans;
+    }
+
+    public double[][] getGenderedSummarySTDs() {
+        return mGSummarySTDs;
+    }
+
+    public double[] getSummaryMeans() {
+        return mSummaryMeans;
+    }
+
+    public double[] getSummarySTDs() {
+        return mSummarySTDs;
     }
 
     public boolean isFinal() {

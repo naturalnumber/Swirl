@@ -3,6 +3,7 @@ package Core;
 //import org.jetbrains.annotations.Contract;
 
 import java.io.PrintStream;
+import java.util.Arrays;
 
 /**
  * Created by androiddev on 2017-11-02.
@@ -358,7 +359,105 @@ public class SwirlParameterBuilder {
                 err.println("Default SupplementRate invalid?");
             }
 
-            if (!b.isValid()) {
+
+
+            //  ReproductionAge //
+            if (!b.setReproductionAge(SwirlParameterBuilder.makeReproductionAge(SwirlEngine.IS_GENDERED_DEFAULT, 4))) {
+                failed++;
+                err.println("Make ReproductionAge 1 invalid?");
+            }
+            if (!b.setReproductionAge(SwirlParameterBuilder.makeReproductionAge(SwirlEngine.IS_GENDERED_DEFAULT, 2, 4))) {
+                failed++;
+                err.println("Make ReproductionAge 2 invalid?");
+            }
+
+            //  LitterProbability //
+            b.setMaxAge(5);
+            if (b.setLitterProbability(makeLitterProbability(5, .2,.3,.4,.5,.1,.1))) {
+                failed++;
+                err.println("Make Bad LitterProbability valid?");
+            }
+            b.setMaxAge(4);
+            if (!b.setLitterProbability(makeLitterProbability(4, .2,.2,.2,.2,.2))) {
+                failed++;
+                err.println("Make LitterProbability 1 invalid?");
+            }
+            b.setMaxAge(4);
+            if (!b.setLitterProbability(makeLitterProbability(4, .2,.3,.1))) {
+                failed++;
+                err.println("Make LitterProbability 2 invalid?");
+            }
+
+            //  Mortality //
+            b.setMaxAge(SwirlEngine.MAX_AGE_DEFAULT);
+            if (!b.setMortality(makeMortality(SwirlEngine.IS_GENDERED_DEFAULT, SwirlEngine.MAX_AGE_DEFAULT, .5d, .25d, .2d, .15d, .1d))) {
+                failed++;
+                err.println("Make Mortality 1 invalid?");
+            }
+            if (!b.setMortality(makeMortality(SwirlEngine.IS_GENDERED_DEFAULT, SwirlEngine.MAX_AGE_DEFAULT, new double[][] {{.5d, .25d, .2d, .15d, .1d}, {.5d, .15d, .2d, .15d, .1d}}))) {
+                failed++;
+                err.println("Make Mortality 2 invalid?");
+            }
+
+            //  SDMortality //
+            if (!b.setSDMortality(makeSDMortality(1000, SwirlEngine.MORTALITY_DEFAULT))) {
+                failed++;
+                err.println("Make SDMortality invalid?");
+            }
+
+            //  InitialPopulation //
+            if (!b.setInitialPopulation(
+                    makeInitialPopulation(SwirlEngine.IS_GENDERED_DEFAULT,
+                                          SwirlEngine.MAX_AGE_DEFAULT,
+                                          SwirlEngine.REPRODUCTION_AGE_DEFAULT,
+                                          SwirlEngine.SEX_RATIO_DEFAULT, 10000,
+                                          SwirlEngine.LITTER_PROBABILITY_DEFAULT,
+                                          SwirlEngine.MORTALITY_DEFAULT))) {
+                failed++;
+                err.println("Make InitialPopulation invalid?");
+            }
+
+
+            b.setDefaults();
+
+
+
+            //  ReproductionAge // //
+            if (!b.extrapolateReproductionAge(4)) {
+                failed++;
+                err.println("Extrapolate ReproductionAge invalid?");
+            }
+
+            //  LitterProbability // //
+            if (!b.extrapolateLitterProbability(.1,.2,.1)) {
+                failed++;
+                err.println("Extrapolate LitterProbability invalid?");
+            }
+
+            //  Mortality // //
+            if (!b.extrapolateMortality(.2,.1)) {
+                failed++;
+                err.println("Extrapolate Mortality 1 invalid?");
+            }
+            if (!b.extrapolateMortality(new double[][] {{.5d, .25d, .2d, .15d, .1d}, {.5d, .15d, .2d, .15d, .1d}})) {
+                failed++;
+                err.println("Extrapolate Mortality 2 invalid?");
+            }
+
+            //  SDMortality // //
+            if (!b.extrapolateSDMortality()) {
+                failed++;
+                err.println("Extrapolate SDMortality invalid?");
+            }
+
+            //  InitialPopulation // //
+            if (!b.extrapolateInitialPopulation(1000000)) {
+                failed++;
+                err.println("Extrapolate InitialPopulation invalid?");
+            }
+
+
+            if (!b.setDefaults() || !b.isValid()) {
                 failed++;
                 err.println("Defaults invalid? "+(b.validationCode()));
             }
@@ -1253,7 +1352,550 @@ public class SwirlParameterBuilder {
         return isValidSupplementRate(supplementRate);
     }
 
+    //  Fill helpers
+
+    /**
+     * Generates a valid Reproduction Age array filled with the integer arguments, repeating the first one if there are insufficient.
+     *
+     * If all genders have the same age, only one int argument is necesssary.
+     *
+     * @param gendered
+     * @param ages
+     *
+     * @return
+     */
+    public static int[] makeReproductionAge(boolean gendered, int... ages) {
+        int g = genderedDim(gendered);
+
+        for (int a : ages) if (!isViableReproductionAgeEntry(a)) return null;
+
+        if (g <= ages.length) return Arrays.copyOf(ages, g);
+        if (gendered) return new int[] {ages[0], ages[0]};
+        return new int[] {ages[0]};
+    }
+
+    /**
+     * Generates a Litter Probability array consistent with the given Max Litter Size, either filled with the provided arguments, or using the provided arguments for the non-zero litter sizes, repeating the last entry if necessary, and calculating the no litter size to match.
+     *
+     * To generate a flat probability spectrum, only one probability needs to be provided.
+     *
+     * @param maxLitterSize
+     * @param probabilities
+     *
+     * @return
+     */
+    public static double[] makeLitterProbability(int maxLitterSize, double... probabilities) {
+        if (isViableMaxLitterSize(maxLitterSize)) {
+
+            double d = 0.0d;
+
+            for (double p : probabilities) if (!validProb(p)) return null; else d += p;
+
+
+            if (maxLitterSize < probabilities.length) {
+                return Arrays.copyOf(probabilities, maxLitterSize+1);
+            } else if (maxLitterSize == probabilities.length) {
+                double[] litterProbabilities = new double[maxLitterSize+1];
+                System.arraycopy(probabilities, 0, litterProbabilities, 1, maxLitterSize);
+                litterProbabilities[0] = 1.0d - d;
+                return (validProb(litterProbabilities[0])) ? litterProbabilities : null;
+            } else {
+                double r = probabilities[probabilities.length-1];
+                double[] litterProbabilities = new double[maxLitterSize+1];
+                System.arraycopy(probabilities, 0, litterProbabilities, 1, probabilities.length);
+                for (int i = litterProbabilities.length+1; i <= maxLitterSize; i++) {
+                    litterProbabilities[i] = r;
+                    d+= r;
+                }
+                litterProbabilities[0] = 1.0d - d;
+                return (validProb(litterProbabilities[0])) ? litterProbabilities : null;
+            }
+        } else {
+            return null;
+        }
+    }
+
+    /**
+     * If there are sufficient parameters it will do the first possible of the following:
+     * fill the whole array with the provided mortalities
+     * fill the whole array, not counting the Max Age entry, with the provided mortalities
+     * do one of the above, making the genders identical
+     * fill the array with the given mortalities, repeating the last entry, making the genders identical
+     *
+     * Thus for identical genders, provide the first few entries, up to what gets repeated for all other adults.
+     *
+     * @param gendered
+     * @param maxAge
+     * @param mortalities
+     *
+     * @return
+     */
+    public static double[][] makeMortality(boolean gendered, int maxAge, double... mortalities) {
+        int g = genderedDim(gendered);
+        int size = maxAge+1;
+
+        for (double m : mortalities) if (!validProb(m)) return null;
+
+        double[][] temp;
+
+        if (size <= mortalities.length) {
+            if (gendered) {
+                if (size * 2 <= mortalities.length) {
+                    // Check?
+                    temp = new double[][]{Arrays.copyOf(mortalities, size),
+                                          Arrays.copyOfRange(mortalities, size, size * 2 - 1)};
+                } else if (maxAge * 2 <= mortalities.length) {
+                    temp = new double[g][size];
+                    System.arraycopy(mortalities, 0, temp[0], 0, maxAge);
+                    if (gendered) {
+                        System.arraycopy(mortalities, maxAge, temp[1], 0, maxAge);
+                    }
+                } else {
+                    temp = new double[][]{Arrays.copyOf(mortalities, size), Arrays.copyOf(mortalities, size)};
+                }
+            } else {
+                temp = new double[][]{Arrays.copyOf(mortalities, size)};
+            }
+        } else if (maxAge == mortalities.length) {
+            temp = new double[g][size];
+            System.arraycopy(mortalities, 0, temp[0], 0, maxAge);
+            if (gendered) {
+                System.arraycopy(mortalities, 0, temp[1], 0, maxAge);
+            }
+        } else {
+            double r = mortalities[mortalities.length-1];
+            temp = new double[g][size];
+            System.arraycopy(mortalities, 0, temp[0], 0, mortalities.length);
+            if (gendered) {
+                System.arraycopy(mortalities, 0, temp[1], 0, mortalities.length);
+            }
+            for (int i = mortalities.length; i < size; i++) {
+                temp[0][i] = r;
+                if (gendered) temp[1][i] = r;
+            }
+        }
+        temp[0][maxAge] = 1.0d;
+        if (gendered) temp[1][maxAge] = 1.0d;
+        return temp;
+    }
+
+    /**
+     * Fills the created mortality array with the given mortalities, repeating the last entry as necessary.
+     *
+     * @param gendered
+     * @param maxAge
+     * @param mortalities
+     *
+     * @return
+     */
+    public static double[][] makeMortality(boolean gendered, int maxAge, double[][] mortalities) {
+        if (!validGArray(mortalities, gendered)) return null;
+
+        int g = genderedDim(gendered);
+        int size = maxAge+1;
+
+        for (double[] ms : mortalities) for (double m : ms) if (!validProb(m)) return null;
+
+        double[][] temp;
+
+        if (size <= mortalities[0].length && (!gendered || size <= mortalities[1].length)) {
+            if (gendered) {
+                temp = new double[][]{Arrays.copyOf(mortalities[0], size),
+                                      Arrays.copyOf(mortalities[1], size)};
+            } else {
+                temp = new double[][]{Arrays.copyOf(mortalities[0], size)};
+            }
+        } else {
+            double r = mortalities[0][mortalities[0].length-1];
+            temp = new double[g][size];
+            System.arraycopy(mortalities[0], 0, temp[0], 0, mortalities[0].length);
+            for (int i = mortalities[0].length; i < size; i++) temp[0][i] = r;
+            if (gendered) {
+                r = mortalities[1][mortalities[1].length-1];
+                System.arraycopy(mortalities[1], 0, temp[1], 0, mortalities[1].length);
+                for (int i = mortalities[1].length; i < size; i++) temp[1][i] = r;
+            }
+        }
+
+        temp[0][maxAge] = 1.0d;
+        if (gendered) temp[1][maxAge] = 1.0d;
+        return temp;
+    }
+
+    /**
+     * If there are sufficient parameters it will do the first possible of the following:
+     * fill the whole array with the provided mortality sds
+     * fill the whole array, not counting the Max Age entry, with the provided mortality sds
+     * do one of the above, making the genders identical
+     * fill the array with the given mortality sds, repeating the last entry, making the genders identical
+     *
+     * Thus for identical genders, provide the first few entries, up to what gets repeated for all other adults.
+     *
+     * @param gendered
+     * @param maxAge
+     * @param sds
+     *
+     * @return
+     */
+    public static double[][] makeSDMortality(boolean gendered, int maxAge, double... sds) {
+        int g = genderedDim(gendered);
+        int size = maxAge+1;
+
+        for (double sd : sds) if (!validProb(sd)) return null;
+
+        double[][] temp;
+
+        if (size <= sds.length) {
+            if (gendered) {
+                if (size * 2 <= sds.length) {
+                    // Check?
+                    temp = new double[][]{Arrays.copyOf(sds, size),
+                                          Arrays.copyOfRange(sds, size, size * 2 - 1)};
+                } else if (maxAge * 2 <= sds.length) {
+                    temp = new double[g][size];
+                    System.arraycopy(sds, 0, temp[0], 0, maxAge);
+                    if (gendered) {
+                        System.arraycopy(sds, maxAge, temp[1], 0, maxAge);
+                    }
+                } else {
+                    temp = new double[][]{Arrays.copyOf(sds, size), Arrays.copyOf(sds, size)};
+                }
+            } else {
+                temp = new double[][]{Arrays.copyOf(sds, size)};
+            }
+        } else if (maxAge == sds.length) {
+            temp = new double[g][size];
+            System.arraycopy(sds, 0, temp[0], 0, maxAge);
+            if (gendered) {
+                System.arraycopy(sds, 0, temp[1], 0, maxAge);
+            }
+        } else {
+            double r = sds[sds.length-1];
+            temp = new double[g][size];
+            System.arraycopy(sds, 0, temp[0], 0, sds.length);
+            if (gendered) {
+                System.arraycopy(sds, 0, temp[1], 0, sds.length);
+            }
+            for (int i = sds.length; i < size; i++) {
+                temp[0][i] = r;
+                if (gendered) temp[1][i] = r;
+            }
+        }
+        temp[0][maxAge] = 1.0d;
+        if (gendered) temp[1][maxAge] = 1.0d;
+        return temp;
+    }
+
+    /**
+     * Fills the created mortality sd array with the given mortality sds, repeating the last entry as necessary.
+     *
+     * @param gendered
+     * @param maxAge
+     * @param mortalities
+     *
+     * @return
+     */
+    public static double[][] makeSDMortality(boolean gendered, int maxAge, double[][] sds) {
+        if (!validGArray(sds, gendered)) return null;
+
+        int g = genderedDim(gendered);
+        int size = maxAge+1;
+
+        for (double[] sub : sds) for (double sd : sub) if (!validProb(sd)) return null;
+
+        double[][] temp;
+
+        if (size <= sds[0].length && (!gendered || size <= sds[1].length)) {
+            if (gendered) {
+                temp = new double[][]{Arrays.copyOf(sds[0], size),
+                                      Arrays.copyOf(sds[1], size)};
+            } else {
+                temp = new double[][]{Arrays.copyOf(sds[0], size)};
+            }
+        } else {
+            double r = sds[0][sds[0].length-1];
+            temp = new double[g][size];
+            System.arraycopy(sds[0], 0, temp[0], 0, sds[0].length);
+            for (int i = sds[0].length; i < size; i++) temp[0][i] = r;
+            if (gendered) {
+                r = sds[1][sds[1].length-1];
+                System.arraycopy(sds[1], 0, temp[1], 0, sds[1].length);
+                for (int i = sds[1].length; i < size; i++) temp[1][i] = r;
+            }
+        }
+
+        temp[0][maxAge] = 1.0d;
+        if (gendered) temp[1][maxAge] = 1.0d;
+        return temp;
+    }
+
+    /**
+     * Creates a mortality sd array from a mortality array using statistics.
+     *
+     * @param averagePop
+     * @param mortalities
+     *
+     * @return
+     */
+    public static double[][] makeSDMortality(long averagePop, double[][] mortalities) {
+        if (!isViableMortality(mortalities)) return null;
+        int g = mortalities.length;
+        int size = mortalities[0].length;
+
+        double[][] temp = new double[g][size];
+
+        for (int i = 0; i < g; i++) {
+            for (int j = 0; j < size-1; j++) {
+                temp[i][j] = Math.sqrt(mortalities[i][j]*(1.0d-mortalities[i][j])/averagePop);
+            }
+        }
+
+        temp[0][size-1] = 1.0d;
+        if (temp.length > 1) temp[1][size-1] = 1.0d;
+        return temp;
+    }
+
+    /**
+     * Uses the provided parameters to generate a stable population distribution.
+     *
+     * @param gendered
+     * @param maxAge
+     * @param reproductionAge
+     * @param sexRatio
+     * @param initialPopulation
+     * @param litterProbabilities
+     * @param mortality
+     *
+     * @return
+     */
+    public static long[][] makeInitialPopulation(boolean gendered, int maxAge, int[] reproductionAge, double sexRatio, long initialPopulation, double[] litterProbabilities, double[][] mortality) {
+        if (!(isValidSexRatio(sexRatio, gendered) ||
+              isValidReproductionAge(reproductionAge, gendered, maxAge) ||
+              isValidMortality(mortality, gendered, maxAge) ||
+              isViableLitterProbability(litterProbabilities))) {
+            return null;
+        }
+
+        int g = genderedDim(gendered);
+        int size = maxAge+1;
+        double[][] temp = new double[g][size];
+        double sr = (gendered) ? sexRatio : 1.0d;
+        double sr2 = 1.0 - sr;
+
+        double d = 0.0;
+        for (int i = 1; i < litterProbabilities.length; i++) {
+            d += i*litterProbabilities[i];
+        }
+
+        double tempF = 1.0d, tempM = 1.0d;
+        double tempFS = 0.0d, tempMS  = 0.0d;
+        double tempFRS = 0.0d;
+        long tempL = initialPopulation;
+        int a;
+
+        for (a = 1; a < reproductionAge[0]; a++) {
+            temp[0][a] = tempF;
+            tempFS += tempF;
+            tempF *= 1.0d - mortality[0][a];
+        }
+        for (; a < size; a++) {
+            temp[0][a] = tempF;
+            tempFS += tempF;
+            tempFRS += tempF;
+            tempF *= 1.0d - mortality[0][a];
+        }
+        d *= tempFRS / tempFS; // Normalize by reproductive ratio
+        temp[0][0] = d*sr2;
+
+        if (gendered) {
+            temp[0][0] = d*sr2;
+            for (a = 1; a < size; a++) {
+                temp[1][a] = tempM;
+                tempMS += tempM;
+                tempM *= 1.0d - mortality[1][a];
+            }
+            temp[1][0] = d*sr;
+
+            tempF = tempL*sr2/(tempFS+temp[0][0]); // Normalize to initialPop
+            tempM = tempL*sr/(tempMS+temp[1][0]);
+            for (a = 0; a < size; a++) { // Normalize
+                temp[0][a] *= tempF;
+                temp[1][a] *= tempM;
+            }
+        } else {
+            temp[0][0] = d;
+            tempF = tempL/(tempFS+temp[0][0]);
+            for (a = 1; a < size; a++) { // Normalize
+                temp[0][a] *= tempF;
+            }
+        }
+
+        long[][] pops = new long[g][size];
+
+        for (int i = 0; i < g; i++) for (a = 0; a < size; a++) pops[i][a] = Math.round(temp[i][a]);
+
+        return pops;
+    }
+
+    //  Extrapolation helpers
+
+    /**
+     * Generates a valid Reproduction Age array filled with the integer arguments, repeating the first one if there are insufficient.
+     * Uses the current stored gender state.
+     *
+     * If all genders have the same age, only one int argument is necesssary.
+     *
+     * @param ages
+     *
+     * @return
+     */
+    public boolean extrapolateReproductionAge(int... ages) {
+        return setReproductionAge(makeReproductionAge(mIsGendered, ages));
+    }
+
+    /**
+     * Generates a Litter Probability array consistent with the current Max Litter Size, either filled with the provided arguments, or using the provided arguments for the non-zero litter sizes, repeating the last entry if necessary, and calculating the no litter size to match.
+     *
+     * To generate a flat probability spectrum, only one probability needs to be provided.
+     *
+     * @param probabilities
+     *
+     * @return
+     */
+    public boolean extrapolateLitterProbability(double... probabilities) {
+        return setLitterProbability(makeLitterProbability(mMaxLitterSize, probabilities));
+    }
+
+    /**
+     * If there are sufficient parameters it will do the first possible of the following:
+     * fill the whole array with the provided mortalities
+     * fill the whole array, not counting the Max Age entry, with the provided mortalities
+     * do one of the above, making the genders identical
+     * fill the array with the given mortalities, repeating the last entry, making the genders identical
+     *
+     * Thus for identical genders, provide the first few entries, up to what gets repeated for all other adults.
+     *
+     * Uses the current gendered state and max age.
+     *
+     * @param mortalities
+     *
+     * @return
+     */
+    public boolean extrapolateMortality(double... mortalities) {
+        return setMortality(makeMortality(mIsGendered, mMaxAge, mortalities));
+    }
+
+    /**
+     * Fills the created mortality array with the given mortalities, repeating the last entry as necessary.
+     *
+     * @param mortalities
+     *
+     * @return
+     */
+    public boolean extrapolateMortality(double[][] mortalities) {
+        return setMortality(makeMortality(mIsGendered, mMaxAge, mortalities));
+    }
+
+    /**
+     * If there are sufficient parameters it will do the first possible of the following:
+     * fill the whole array with the provided mortality sds
+     * fill the whole array, not counting the Max Age entry, with the provided mortality sds
+     * do one of the above, making the genders identical
+     * fill the array with the given mortality sds, repeating the last entry, making the genders identical
+     *
+     * Thus for identical genders, provide the first few entries, up to what gets repeated for all other adults.
+     *
+     * Uses the current gendered state and max age.
+     *
+     * @param mortalities
+     *
+     * @return
+     */
+    public boolean extrapolateSDMortality(double... mortalities) {
+        return setSDMortality(makeSDMortality(mIsGendered, mMaxAge, mortalities));
+    }
+
+    /**
+     * Fills the created sd mortality array with the given sd mortalities, repeating the last entry as necessary.
+     *
+     * @param mortalities
+     *
+     * @return
+     */
+    public boolean extrapolateSDMortality(double[][] mortalities) {
+        return setSDMortality(makeSDMortality(mIsGendered, mMaxAge, mortalities));
+    }
+
+    /**
+     * Creates a mortality sd array from a mortality array using statistics.
+     *
+     * @param initialPopulation
+     * @param maxAge
+     *
+     * @return
+     */
+    public boolean extrapolateSDMortality(long initialPopulation, int maxAge) {
+        return setSDMortality(makeSDMortality(initialPopulation/maxAge, mMortality));
+    }
+
+    /**
+     * Creates a mortality sd array from a mortality array using statistics.
+     *
+     * @param averagePopulation
+     *
+     * @return
+     */
+    public boolean extrapolateSDMortality(long averagePopulation) {
+        return setSDMortality(makeSDMortality(averagePopulation, mMortality));
+    }
+
+    /**
+     * Creates a mortality sd array from a mortality array using statistics.
+     *
+     * Uses the inital populations
+     *
+     * @return
+     */
+    public boolean extrapolateSDMortality() {
+        long avg = 0l;
+        int n = 0;
+
+        for (long[] ls : mInitialPopulation) for (long l : ls) {
+            avg += l;
+            n++;
+        }
+
+        avg = avg / n;
+
+        return setSDMortality(makeSDMortality(avg, mMortality));
+    }
+
+    /**
+     * Uses the provided parameters to generate a stable population distribution.
+     *
+     * Uses:
+     *  gendered
+     *  max age
+     *  reproduction age
+     *  sex ratio
+     *  litter probabilities
+     *  mortality matrix
+     *
+     * @param initialPopulation
+     *
+     * @return
+     */
+    public boolean extrapolateInitialPopulation(long initialPopulation) {
+        return setInitialPopulation(makeInitialPopulation(mIsGendered, mMaxAge, mReproductionAge,
+                                                          mSexRatio, initialPopulation,
+                                                          mLitterProbability, mMortality));
+    }
+
     //  Check helpers
+
+    static int genderedDim(boolean gendered) {
+        return ((gendered) ? 2 : 1);
+    }
 
     //@Contract(pure = true)
     static boolean validProb(double p) {
@@ -1267,32 +1909,32 @@ public class SwirlParameterBuilder {
 
     //@Contract(value = "null, _ -> false", pure = true)
     static boolean validGArray(int[] array, boolean gendered) {
-        return array != null && array.length == ((gendered) ? 2 : 1);
+        return array != null && array.length == genderedDim(gendered);
     }
 
     //@Contract(value = "null, _ -> false", pure = true)
     static boolean validGArray(int[][] array, boolean gendered) {
-        return array != null && array.length == ((gendered) ? 2 : 1);
+        return array != null && array.length == genderedDim(gendered);
     }
 
     //@Contract(value = "null, _ -> false", pure = true)
     static boolean validGArray(long[] array, boolean gendered) {
-        return array != null && array.length == ((gendered) ? 2 : 1);
+        return array != null && array.length == genderedDim(gendered);
     }
 
     //@Contract(value = "null, _ -> false", pure = true)
     static boolean validGArray(long[][] array, boolean gendered) {
-        return array != null && array.length == ((gendered) ? 2 : 1);
+        return array != null && array.length == genderedDim(gendered);
     }
 
     //@Contract(value = "null, _ -> false", pure = true)
     static boolean validGArray(double[] array, boolean gendered) {
-        return array != null && array.length == ((gendered) ? 2 : 1);
+        return array != null && array.length == genderedDim(gendered);
     }
 
     //@Contract(value = "null, _ -> false", pure = true)
     static boolean validGArray(double[][] array, boolean gendered) {
-        return array != null && array.length == ((gendered) ? 2 : 1);
+        return array != null && array.length == genderedDim(gendered);
     }
 
     //@Contract(pure = true)
