@@ -1,11 +1,11 @@
 package Test;
 
-import java.util.Arrays;
+import com.stochasticsystems.swirl.engine.SwirlEngine;
+import com.stochasticsystems.swirl.engine.SwirlOutputBundle;
+import com.stochasticsystems.swirl.engine.SwirlParameterBuilder;
+import com.stochasticsystems.swirl.engine.SwirlParameterBundle;
 
-import Core.SwirlEngine;
-import Core.SwirlOutputBundle;
-import Core.SwirlParameterBuilder;
-import Core.SwirlParameterBundle;
+import java.util.Arrays;
 
 public class DefaultTestRun {
     public static void main(String... args) {

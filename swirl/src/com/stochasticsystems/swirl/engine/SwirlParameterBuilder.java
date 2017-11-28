@@ -1,4 +1,4 @@
-package Core;
+package com.stochasticsystems.swirl.engine;
 
 //import org.jetbrains.annotations.Contract;
 
@@ -6,9 +6,11 @@ import java.io.PrintStream;
 import java.util.Arrays;
 
 /**
- * Created by androiddev on 2017-11-02.
+ * 
+ * Created by Allan Stewart on 2017-11-02.
  */
 public class SwirlParameterBuilder {
+    public static final String TAG = "SwirlParameterBuilder";
     private SwirlParameterBundle mLastReturnedParameters = null;
     private boolean              mLastValid              = false;
     private boolean              mIsValid                = false; // Thread safe?
@@ -109,6 +111,31 @@ public class SwirlParameterBuilder {
 
     public boolean setDefaults() {
         return set(SwirlParameterBundle.getDefault());
+    }
+
+
+    public void clear() {
+        mLastReturnedParameters = null;
+        mLastValid = false;
+        mIsValid = false;
+        mNRuns = SwirlEngine.N_RUNS_DEFAULT;
+        mNPeriods = SwirlEngine.N_PERIODS_DEFAULT;
+        mReportingInterval = SwirlEngine.REPORTING_INTERVAL_DEFAULT;
+        mMaxAge = SwirlEngine.MAX_AGE_DEFAULT;
+        mReproductionAge = null;
+        mIsGendered = true;
+        mMaxLitterSize = SwirlEngine.MAX_LITTER_SIZE_DEFAULT;
+        mLitterProbability = null;
+        //mReproductionPercentSD = SwirlEngine.SD_REPRODUCTION_P_DEFAULT;
+        mSexRatio = SwirlEngine.SEX_RATIO_DEFAULT;
+        mRMCorrelation = SwirlEngine.RM_CORRELATION_DEFAULT;
+        mMortality = null;
+        mSDMortality = null;
+        mInitialPopulation = null;
+        mCarryingCapacity = SwirlEngine.CARRYING_CAPACITY_DEFAULT;
+        mSDCarryingCapacity = SwirlEngine.SD_CARRYING_CAPACITY_DEFAULT;
+        mHarvestRate = SwirlEngine.HARVEST_RATE_DEFAULT;
+        mSupplementRate = SwirlEngine.SUPPLEMENT_RATE_DEFAULT;
     }
 
     public SwirlParameterBundle build() {
@@ -469,6 +496,19 @@ public class SwirlParameterBuilder {
                 err.println("Default not returned?");
             }
 
+            String defaultAsString = b.toDelimitedString("\n");
+
+            b.clear();
+
+            b.fromDelimitedString(defaultAsString, "\n");
+
+            if (!b.isValid() || !b.equals(SwirlParameterBundle.getDefault())) {
+                failed++;
+                err.println("Default not read from save?");
+            }
+
+
+
         } catch (Exception e) {
             err.println(e);
             e.printStackTrace(err);
@@ -480,7 +520,7 @@ public class SwirlParameterBuilder {
 
     public static void main(String[] args) {
         // TODO: test stuff
-        test(System.err);
+        System.err.println("Failed: "+test(System.err));
     }
 
     //  Getters, setters, validators, etc.
@@ -507,7 +547,7 @@ public class SwirlParameterBuilder {
      */
     //@Contract(pure = true)
     public static boolean isValidNRuns(int nRuns) {
-        return nRuns > 0 && nRuns < SwirlEngine.N_RUNS_MAX;
+        return nRuns >= SwirlEngine.N_RUNS_MIN && nRuns <= SwirlEngine.N_RUNS_MAX;
     }
 
     /**
@@ -546,7 +586,7 @@ public class SwirlParameterBuilder {
      */
     //@Contract(pure = true)
     public static boolean isValidNPeriods(int nPeriods) {
-        return nPeriods > 0 && nPeriods < SwirlEngine.N_PERIODS_MAX;
+        return nPeriods >= SwirlEngine.N_PERIODS_MIN && nPeriods <= SwirlEngine.N_PERIODS_MAX;
     }
 
     /**
@@ -615,7 +655,7 @@ public class SwirlParameterBuilder {
      */
     //@Contract(pure = true)
     public static boolean isViableReportingInterval(int reportingInterval) {
-        return reportingInterval > 0 && reportingInterval <= SwirlEngine.N_PERIODS_MAX;
+        return reportingInterval >= SwirlEngine.N_PERIODS_MIN && reportingInterval <= SwirlEngine.N_PERIODS_MAX;
     }
 
     public int getMaxAge() {
@@ -641,7 +681,7 @@ public class SwirlParameterBuilder {
      */
     //@Contract(pure = true)
     public static boolean isValidMaxAge(int maxAge) {
-        return maxAge > 0 && maxAge < SwirlEngine.MAX_AGE_MAX;
+        return maxAge >= SwirlEngine.MAX_AGE_MIN && maxAge <= SwirlEngine.MAX_AGE_MAX;
     }
 
     /**
@@ -658,7 +698,7 @@ public class SwirlParameterBuilder {
     }
 
     public int[] getReproductionAge() {
-        return mReproductionAge;
+        return mReproductionAge.clone();
     }
 
     public boolean setReproductionAge(int[] reproductionAge) {
@@ -699,7 +739,7 @@ public class SwirlParameterBuilder {
     //@Contract(pure = true)
     static boolean isValidReproductionAgeF(int[] reproductionAge, boolean gendered,
                                            int maxAge) {
-        return isValidReproductionAgeEntry(reproductionAge[0], maxAge) &&
+        return viableGDim(reproductionAge) && isValidReproductionAgeEntry(reproductionAge[0], maxAge) &&
                (!gendered || isValidReproductionAgeEntry(reproductionAge[1], maxAge));
     }
 
@@ -776,7 +816,7 @@ public class SwirlParameterBuilder {
      */
     //@Contract(pure = true)
     public static boolean isValidMaxLitterSize(int maxLitterSize) {
-        return maxLitterSize > 0 && maxLitterSize < SwirlEngine.MAX_LITTER_SIZE_MAX;
+        return maxLitterSize >= SwirlEngine.MAX_LITTER_SIZE_MIN && maxLitterSize <= SwirlEngine.MAX_LITTER_SIZE_MAX;
     }
 
     /**
@@ -793,7 +833,7 @@ public class SwirlParameterBuilder {
     }
 
     public double[] getLitterProbability() {
-        return mLitterProbability;
+        return mLitterProbability.clone();
     }
 
     public boolean setLitterProbability(double[] litterProbability) {
@@ -954,7 +994,7 @@ public class SwirlParameterBuilder {
      */
     //@Contract(pure = true)
     public static boolean isValidRMCorrelation(double rmCorrelation) {
-        return rmCorrelation >= SwirlEngine.RM_CORRELATION_MIN && rmCorrelation <= 1.0d;
+        return rmCorrelation >= SwirlEngine.RM_CORRELATION_MIN && rmCorrelation <= SwirlEngine.RM_CORRELATION_MAX;
     }
 
     /**
@@ -971,7 +1011,7 @@ public class SwirlParameterBuilder {
     }
 
     public double[][] getMortality() {
-        return mMortality;
+        return mMortality.clone();
     }
 
     public boolean setMortality(double[][] mortality) {
@@ -1036,7 +1076,7 @@ public class SwirlParameterBuilder {
     }
 
     public double[][] getSDMortality() {
-        return mSDMortality;
+        return mSDMortality.clone();
     }
 
     public boolean setSDMortality(double[][] sdMortality) {
@@ -1103,7 +1143,7 @@ public class SwirlParameterBuilder {
     }
 
     public long[][] getInitialPopulation() {
-        return mInitialPopulation;
+        return mInitialPopulation.clone();
     }
 
     public boolean setInitialPopulation(long[][] initialPopulation) {
@@ -1180,7 +1220,7 @@ public class SwirlParameterBuilder {
      */
     //@Contract(pure = true)
     public static boolean isValidInitialPopulationEntry(long initialPopulation) {
-        return initialPopulation >= 0L && initialPopulation <= SwirlEngine.INITIAL_POPULATION_MAX;
+        return initialPopulation >= SwirlEngine.INITIAL_POPULATION_MIN && initialPopulation <= SwirlEngine.INITIAL_POPULATION_MAX;
     }
 
     /**
@@ -1219,7 +1259,7 @@ public class SwirlParameterBuilder {
      */
     //@Contract(pure = true)
     public static boolean isValidCarryingCapacity(long carryingCapacity) {
-        return carryingCapacity > 0L && carryingCapacity <= SwirlEngine.CARRYING_CAPACITY_MAX;
+        return carryingCapacity >= SwirlEngine.CARRYING_CAPACITY_MIN && carryingCapacity <= SwirlEngine.CARRYING_CAPACITY_MAX;
     }
 
     /**
@@ -1258,7 +1298,7 @@ public class SwirlParameterBuilder {
      */
     //@Contract(pure = true)
     public static boolean isValidSDCarryingCapacity(double sdCarryingCapacity) {
-        return sdCarryingCapacity >= 0.0d && sdCarryingCapacity <= SwirlEngine.SD_CARRYING_CAPACITY_MAX;
+        return sdCarryingCapacity >= SwirlEngine.SD_CARRYING_CAPACITY_MIN && sdCarryingCapacity <= SwirlEngine.SD_CARRYING_CAPACITY_MAX;
     }
 
     /**
@@ -1297,7 +1337,7 @@ public class SwirlParameterBuilder {
      */
     //@Contract(pure = true)
     public static boolean isValidHarvestRate(int harvestRate) {
-        return harvestRate >= 0 && harvestRate <= SwirlEngine.HARVEST_RATE_MAX;
+        return harvestRate >= SwirlEngine.HARVEST_RATE_MIN && harvestRate <= SwirlEngine.HARVEST_RATE_MAX;
     }
 
     /**
@@ -1336,7 +1376,7 @@ public class SwirlParameterBuilder {
      */
     //@Contract(pure = true)
     public static boolean isValidSupplementRate(int supplementRate) {
-        return supplementRate >= 0 && supplementRate <= SwirlEngine.HARVEST_RATE_MAX;
+        return supplementRate >= SwirlEngine.SUPPLEMENT_RATE_MIN && supplementRate <= SwirlEngine.SUPPLEMENT_RATE_MAX;
     }
 
     /**
@@ -1591,7 +1631,7 @@ public class SwirlParameterBuilder {
      *
      * @param gendered
      * @param maxAge
-     * @param mortalities
+     * @param sds
      *
      * @return
      */
@@ -2015,5 +2055,360 @@ public class SwirlParameterBuilder {
     //@Contract(pure = true)
     static boolean toGenders(double[][] array) {
         return array.length == 2;
+    }
+
+
+
+
+    /**
+     * Encodes the parameters as a string, using the provided delimiter.
+     * Using = [ ] or , may make the string unreadable by fromDelimitedString.
+     *
+     * @param delimiter The text that separates the output parameters
+     *
+     * @return The string
+     */
+    public String toDelimitedString(String delimiter) {
+        StringBuilder output = new StringBuilder();
+
+        output.append("NRuns=").append(mNRuns).append(delimiter)
+              .append("NPeriods=").append(mNPeriods).append(delimiter)
+              .append("ReportingInterval=").append(mReportingInterval).append(delimiter)
+              .append("MaxAge=").append(mMaxAge);
+
+        if (mReproductionAge != null) {
+            output.append(delimiter)
+                  .append("ReproductionAge=").append(Arrays.toString(mReproductionAge));
+        }
+
+        output.append(delimiter)
+              .append("IsGendered=").append(mIsGendered).append(delimiter)
+              .append("MaxLitterSize=").append(mMaxLitterSize);
+
+        if (mLitterProbability != null) {
+            output.append(delimiter)
+                  .append("LitterProbability=").append(Arrays.toString(mLitterProbability));
+        }
+
+        output.append(delimiter)
+              .append("SexRatio=").append(mSexRatio).append(delimiter)
+              .append("RMCorrelation=").append(mRMCorrelation);
+
+        if (mMortality != null) {
+            output.append(delimiter)
+                  .append("Mortality=").append(Arrays.toString(mMortality));
+        }
+
+        if (mSDMortality != null) {
+            output.append(delimiter)
+                  .append("SDMortality=").append(Arrays.toString(mSDMortality));
+        }
+
+        if (mInitialPopulation != null) {
+            output.append(delimiter)
+                  .append("InitialPopulation=").append(Arrays.toString(mInitialPopulation));
+        }
+
+        output.append(delimiter)
+              .append("CarryingCapacity=").append(mCarryingCapacity).append(delimiter)
+              .append("SDCarryingCapacity=").append(mSDCarryingCapacity).append(delimiter)
+              .append("HarvestRate=").append(mHarvestRate).append(delimiter)
+              .append("SupplementRate=").append(mSupplementRate);
+
+        return output.toString();
+    }
+
+    /**
+     * Creates a parameter bundle by attempting to read the provided input as if it were produced by
+     * toDelimitedString using the provided delimiter. Using = [ ] or , may make the string
+     * unreadable by fromDelimitedString.
+     *
+     * @param input     The string to parse
+     * @param delimiter The delimiter used to separate the parameters
+     *
+     * @return
+     */
+    public void fromDelimitedString(String input, String delimiter) {
+        //if (delimiter.equals("="))
+
+        int        nRuns              = mNRuns;
+        int        nPeriods           = mNPeriods;
+        int        reportingInterval  = mReportingInterval;
+        int        maxAge             = mMaxAge;
+        int[]      reproductionAge    = mReproductionAge;
+        boolean    isGendered         = mIsGendered;
+        int        maxLitterSize      = mMaxLitterSize;
+        double[]   litterProbability  = mLitterProbability;
+        double     sexRatio           = mSexRatio;
+        double     rmCorrelation      = mRMCorrelation;
+        double[][] mortality          = mMortality;
+        double[][] sdMortality        = mSDMortality;
+        long[][]   initialPopulation  = mInitialPopulation;
+        long       carryingCapacity   = mCarryingCapacity;
+        double     sdCarryingCapacity = mSDCarryingCapacity;
+        int        harvestRate        = mHarvestRate;
+        int        supplementRate     = mSupplementRate;
+
+        String[] terms = input.split(delimiter);
+        String[] split;
+        String   lower, after, temp;
+        int      delim;
+
+        for (String term : terms)
+            try {
+                lower = term.toLowerCase();
+                delim = term.indexOf('=');
+
+                if (delim > 0) {
+                    after = term.substring(delim);
+
+                    if (lower.startsWith("nruns")) {
+                        try {
+                            nRuns = Integer.parseInt(after);
+                        } catch (Exception ignored) {}
+                    } else if (lower.startsWith("nperiods")) {
+                        try {
+                            nPeriods = Integer.parseInt(after);
+                        } catch (Exception ignored) {}
+                    } else if (lower.startsWith("reportinginterval")) {
+                        try {
+                            reportingInterval = Integer.parseInt(after);
+                        } catch (Exception ignored) {}
+                    } else if (lower.startsWith("maxage")) {
+                        try {
+                            maxAge = Integer.parseInt(after);
+                        } catch (Exception ignored) {}
+                    } else if (lower.startsWith("reproductionage")) {
+                        try {
+                            if (after.startsWith("[")) {
+                                temp = after.substring(1);
+                                int[] ints;
+
+                                int first = temp.indexOf(", ");
+                                if (first > 0) {
+                                    ints = new int[2];
+                                    ints[0] = Integer.parseInt(temp.substring(0, first));
+                                    ints[1] = Integer.parseInt(
+                                            temp.substring(first + 2, temp.indexOf(']')));
+                                } else {
+                                    ints = new int[1];
+                                    ints[0] = Integer.parseInt(temp.substring(0, first));
+                                }
+                                reproductionAge = ints;
+                            }
+                        } catch (Exception ignored) {}
+                    } else if (lower.startsWith("isgendered")) {
+                        try {
+                            isGendered = Boolean.parseBoolean(after);
+                        } catch (Exception ignored) {}
+                    } else if (lower.startsWith("maxlittersize")) {
+                        try {
+                            maxLitterSize = Integer.parseInt(after);
+                        } catch (Exception ignored) {}
+                    } else if (lower.startsWith("litterprobability")) {
+                        try {
+                            if (after.startsWith("[")) {
+                                temp = after.substring(1, after.length() - 1);
+
+                                split = temp.split(", ");
+
+                                double[] doubles = new double[split.length];
+
+                                for (int i = 0; i < split.length; i++) {
+                                    doubles[i] = Double.parseDouble(split[i]);
+                                }
+
+                                litterProbability = doubles;
+                            }
+                        } catch (Exception ignored) {}
+                    } else if (lower.startsWith("sexratio")) {
+                        try {
+                            sexRatio = Double.parseDouble(after);
+                        } catch (Exception ignored) {}
+                    } else if (lower.startsWith("mortality")) {
+                        try {
+                            if (after.startsWith("[")) {
+                                temp = after.substring(1, after.indexOf(']'));
+                                int g = (after.indexOf('[', 2) > 0) ? 2 : 1;
+
+                                split = temp.split(", ");
+
+                                double[][] doubles = new double[g][split.length];
+
+                                for (int i = 0; i < split.length; i++) {
+                                    doubles[0][i] = Double.parseDouble(split[i]);
+                                }
+
+                                if (g > 1) {
+                                    temp = after.substring(after.indexOf('[', 2),
+                                            temp.length() - 1);
+
+                                    split = temp.split(", ");
+
+                                    if (split.length == doubles[0].length) {
+                                        for (int i = 0; i < split.length; i++) {
+                                            doubles[1][i] = Double.parseDouble(split[i]);
+                                        }
+                                    } else {
+                                        doubles = null;
+                                    }
+                                }
+
+                                mortality = doubles;
+                            }
+                        } catch (Exception ignored) {}
+                    } else if (lower.startsWith("sdmortality")) {
+                        try {
+                            if (after.startsWith("[")) {
+                                temp = after.substring(1, after.indexOf(']'));
+                                int g = (after.indexOf('[', 2) > 0) ? 2 : 1;
+
+                                split = temp.split(", ");
+
+                                double[][] doubles = new double[g][split.length];
+
+                                for (int i = 0; i < split.length; i++) {
+                                    doubles[0][i] = Double.parseDouble(split[i]);
+                                }
+
+                                if (g > 1) {
+                                    temp = after.substring(after.indexOf('[', 2),
+                                            temp.length() - 1);
+
+                                    split = temp.split(", ");
+
+                                    if (split.length == doubles[0].length) {
+                                        for (int i = 0; i < split.length; i++) {
+                                            doubles[1][i] = Double.parseDouble(split[i]);
+                                        }
+                                    } else {
+                                        doubles = null;
+                                    }
+                                }
+
+                                sdMortality = doubles;
+                            }
+                        } catch (Exception ignored) {}
+                    } else if (lower.startsWith("initialpopulation")) {
+                        try {
+                            if (after.startsWith("[")) {
+                                temp = after.substring(1, after.indexOf(']'));
+                                int g = (after.indexOf('[', 2) > 0) ? 2 : 1;
+
+                                split = temp.split(", ");
+
+                                long[][] longs = new long[g][split.length];
+
+                                for (int i = 0; i < split.length; i++) {
+                                    longs[0][i] = Long.parseLong(split[i]);
+                                }
+
+                                if (g > 1) {
+                                    temp = after.substring(after.indexOf('[', 2),
+                                            temp.length() - 1);
+
+                                    split = temp.split(", ");
+
+                                    if (split.length == longs[0].length) {
+                                        for (int i = 0; i < split.length; i++) {
+                                            longs[1][i] = Long.parseLong(split[i]);
+                                        }
+                                    } else {
+                                        longs = null;
+                                    }
+                                }
+
+                                initialPopulation = longs;
+                            }
+                        } catch (Exception ignored) {}
+                    } else if (lower.startsWith("carryingcapacity")) {
+                        try {
+                            carryingCapacity = Long.parseLong(after);
+                        } catch (Exception ignored) {}
+                    } else if (lower.startsWith("sdcarryingcapacity")) {
+                        try {
+                            sdCarryingCapacity = Double.parseDouble(after);
+                        } catch (Exception ignored) {}
+                    } else if (lower.startsWith("harvestrate")) {
+                        try {
+                            harvestRate = Integer.parseInt(after);
+                        } catch (Exception ignored) {}
+                    } else if (lower.startsWith("supplementrate")) {
+                        try {
+                            supplementRate = Integer.parseInt(after);
+                        } catch (Exception ignored) {}
+                    }
+                }
+            } catch (Exception ignored) {}
+
+        mLastValid = false;
+
+        mNRuns = nRuns;
+        mNPeriods = nPeriods;
+        mReportingInterval = reportingInterval;
+        mMaxAge = maxAge;
+        mReproductionAge = reproductionAge;
+        mIsGendered = isGendered;
+        mMaxLitterSize = maxLitterSize;
+        mLitterProbability = litterProbability;
+        mSexRatio = sexRatio;
+        mRMCorrelation = rmCorrelation;
+        mMortality = mortality;
+        mSDMortality = sdMortality;
+        mInitialPopulation = initialPopulation;
+        mCarryingCapacity = carryingCapacity;
+        mSDCarryingCapacity = sdCarryingCapacity;
+        mHarvestRate = harvestRate;
+        mSupplementRate = supplementRate;
+    }
+
+    public boolean equals(SwirlParameterBundle o) {
+        SwirlParameterBundle that = o;
+
+        if (mNRuns != that.mNRuns) return false;
+        if (mNPeriods != that.mNPeriods) return false;
+        if (mReportingInterval != that.mReportingInterval) return false;
+        if (mMaxAge != that.mMaxAge) return false;
+        if (mIsGendered != that.mIsGendered) return false;
+        if (mMaxLitterSize != that.mMaxLitterSize) return false;
+        if (Double.compare(that.mSexRatio, mSexRatio) != 0) return false;
+        if (Double.compare(that.mRMCorrelation, mRMCorrelation) != 0) return false;
+        if (mCarryingCapacity != that.mCarryingCapacity) return false;
+        if (Double.compare(that.mSDCarryingCapacity, mSDCarryingCapacity) != 0) return false;
+        if (mHarvestRate != that.mHarvestRate) return false;
+        if (mSupplementRate != that.mSupplementRate) return false;
+        if (!Arrays.equals(mReproductionAge, that.mReproductionAge)) return false;
+        if (!Arrays.equals(mLitterProbability, that.mLitterProbability)) return false;
+        if (!Arrays.deepEquals(mMortality, that.mMortality)) return false;
+        if (!Arrays.deepEquals(mSDMortality, that.mSDMortality)) return false;
+        return Arrays.deepEquals(mInitialPopulation, that.mInitialPopulation);
+
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        SwirlParameterBuilder that = (SwirlParameterBuilder) o;
+
+        if (mNRuns != that.mNRuns) return false;
+        if (mNPeriods != that.mNPeriods) return false;
+        if (mReportingInterval != that.mReportingInterval) return false;
+        if (mMaxAge != that.mMaxAge) return false;
+        if (mIsGendered != that.mIsGendered) return false;
+        if (mMaxLitterSize != that.mMaxLitterSize) return false;
+        if (Double.compare(that.mSexRatio, mSexRatio) != 0) return false;
+        if (Double.compare(that.mRMCorrelation, mRMCorrelation) != 0) return false;
+        if (mCarryingCapacity != that.mCarryingCapacity) return false;
+        if (Double.compare(that.mSDCarryingCapacity, mSDCarryingCapacity) != 0) return false;
+        if (mHarvestRate != that.mHarvestRate) return false;
+        if (mSupplementRate != that.mSupplementRate) return false;
+        if (!Arrays.equals(mReproductionAge, that.mReproductionAge)) return false;
+        if (!Arrays.equals(mLitterProbability, that.mLitterProbability)) return false;
+        if (!Arrays.deepEquals(mMortality, that.mMortality)) return false;
+        if (!Arrays.deepEquals(mSDMortality, that.mSDMortality)) return false;
+        return Arrays.deepEquals(mInitialPopulation, that.mInitialPopulation);
+
     }
 }
